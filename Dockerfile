@@ -1,5 +1,5 @@
 # Build environment with clang + vcpkg on Alpine (musl)
-FROM alpine:3.21 AS builder
+FROM alpine:latest AS builder
 
 # Install clang/LLVM toolchain and build dependencies
 RUN apk add --no-cache \

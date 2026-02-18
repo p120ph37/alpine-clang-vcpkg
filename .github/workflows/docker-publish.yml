@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+
+    paths-ignore:
+      - 'README.md'
   # Allow manual trigger
   workflow_dispatch:
 
@@ -16,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
@@ -65,3 +68,61 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_REPO }}
+
+      - name: Extract version info from published image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="${{ env.DOCKERHUB_REPO }}:latest"
+          docker pull --platform linux/amd64 "$IMAGE"
+          ALPINE_VERSION=$(docker run --rm --platform linux/amd64 "$IMAGE" \
+            cat /etc/alpine-release | tr -d '[:space:]')
+          CLANG_VERSION=$(docker run --rm --platform linux/amd64 "$IMAGE" \
+            clang --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          MUSL_VERSION=$(docker run --rm --platform linux/amd64 "$IMAGE" \
+            apk info musl 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          VCPKG_SHA=$(cut -c1-7 .vcpkg-commit)
+          VCPKG_DATE=$(docker run --rm --platform linux/amd64 "$IMAGE" \
+            git -C /opt/vcpkg log -1 --format=%cd --date=short)
+          echo "ALPINE_VERSION=$ALPINE_VERSION" >> "$GITHUB_ENV"
+          echo "CLANG_VERSION=$CLANG_VERSION"   >> "$GITHUB_ENV"
+          echo "MUSL_VERSION=$MUSL_VERSION"     >> "$GITHUB_ENV"
+          echo "VCPKG_SHA=$VCPKG_SHA"           >> "$GITHUB_ENV"
+          echo "VCPKG_DATE=$VCPKG_DATE"         >> "$GITHUB_ENV"
+          {
+            echo "| Package | Version |"
+            echo "|---------|---------|"
+            docker run --rm --platform linux/amd64 "$IMAGE" \
+              apk list --installed 2>/dev/null \
+              | awk '{print $1}' | sort \
+              | sed -E 's/^(.*)-([0-9][0-9.]*-r[0-9]+)$/| \1 | \2 |/'
+          } > /tmp/pkg-table.txt
+
+      - name: Update README version markers
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sed -i \
+            "s|<!-- alpine-version -->.*<!-- /alpine-version -->|<!-- alpine-version -->$ALPINE_VERSION<!-- /alpine-version -->|" \
+            README.md
+          sed -i \
+            "s|<!-- musl-version -->.*<!-- /musl-version -->|<!-- musl-version -->$MUSL_VERSION<!-- /musl-version -->|" \
+            README.md
+          sed -i \
+            "s|<!-- clang-version -->.*<!-- /clang-version -->|<!-- clang-version -->$CLANG_VERSION<!-- /clang-version -->|" \
+            README.md
+          sed -i \
+            "s|<!-- vcpkg-sha -->.*<!-- /vcpkg-sha -->|<!-- vcpkg-sha -->$VCPKG_SHA<!-- /vcpkg-sha -->|" \
+            README.md
+          sed -i \
+            "s|<!-- vcpkg-date -->.*<!-- /vcpkg-date -->|<!-- vcpkg-date -->$VCPKG_DATE<!-- /vcpkg-date -->|" \
+            README.md
+          TABLE_ESC=$(awk '1' ORS='\\n' /tmp/pkg-table.txt)
+          sed -z -E \
+            "s@<!-- package-list -->.*<!-- /package-list -->@<!-- package-list -->\n${TABLE_ESC}<!-- /package-list -->@" \
+            -i README.md
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update version markers in README"
+            git push
+          fi
