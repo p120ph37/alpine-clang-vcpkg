@@ -2,13 +2,22 @@
 
 Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ binaries targeting musl.
 
-## What's included
+## What's included in `alpine-clang-vcpkg:latest`
 
 - **Alpine <!-- alpine-version -->3.21<!-- /alpine-version -->** — musl <!-- musl-version -->unknown<!-- /musl-version --> libc base
 - **clang/LLVM <!-- clang-version -->19<!-- /clang-version -->** with lld linker
 - **vcpkg** package manager (commit <!-- vcpkg-sha -->unknown<!-- /vcpkg-sha --> from <!-- vcpkg-date -->unknown<!-- /vcpkg-date -->, metrics disabled)
 - **CMake + Ninja** build system
 - Common build dependencies: autoconf, automake, libtool, pkg-config, make, perl
+
+<details>
+<summary>All installed Alpine packages</summary>
+
+<!-- package-list -->
+_Package list will be populated after the first successful build._
+<!-- /package-list -->
+
+</details>
 
 ## Supported platforms
 

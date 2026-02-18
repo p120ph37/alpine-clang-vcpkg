@@ -87,6 +87,14 @@ jobs:
           echo "MUSL_VERSION=$MUSL_VERSION"     >> "$GITHUB_ENV"
           echo "VCPKG_SHA=$VCPKG_SHA"           >> "$GITHUB_ENV"
           echo "VCPKG_DATE=$VCPKG_DATE"         >> "$GITHUB_ENV"
+          {
+            echo "| Package | Version |"
+            echo "|---------|---------|"
+            docker run --rm --platform linux/amd64 "$IMAGE" \
+              apk list --installed 2>/dev/null \
+              | awk '{print $1}' | sort \
+              | sed -E 's/^(.*)-([0-9][0-9.]*-r[0-9]+)$/| \1 | \2 |/'
+          } > /tmp/pkg-table.txt
 
       - name: Update README version markers
         if: github.ref == 'refs/heads/main'
@@ -106,6 +114,19 @@ jobs:
           sed -i \
             "s|<!-- vcpkg-date -->.*<!-- /vcpkg-date -->|<!-- vcpkg-date -->$VCPKG_DATE<!-- /vcpkg-date -->|" \
             README.md
+          python3 << 'PYEOF'
+import re
+with open('README.md') as f:
+    content = f.read()
+with open('/tmp/pkg-table.txt') as f:
+    table = f.read().strip()
+content = re.sub(
+    r'<!-- package-list -->.*?<!-- /package-list -->',
+    f'<!-- package-list -->\n{table}\n<!-- /package-list -->',
+    content, flags=re.DOTALL)
+with open('README.md', 'w') as f:
+    f.write(content)
+PYEOF
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
