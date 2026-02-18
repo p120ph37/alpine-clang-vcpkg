@@ -4,9 +4,9 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 ## What's included
 
-- **Alpine 3.21** — musl libc base
-- **clang/LLVM** with lld linker
-- **vcpkg** package manager (latest HEAD, metrics disabled)
+- **Alpine <!-- alpine-version -->3.21<!-- /alpine-version -->** — musl libc base
+- **clang/LLVM <!-- clang-version -->19<!-- /clang-version -->** with lld linker
+- **vcpkg** package manager (commit <!-- vcpkg-sha -->unknown<!-- /vcpkg-sha -->, metrics disabled)
 - **CMake + Ninja** build system
 - Common build dependencies: autoconf, automake, libtool, pkg-config, make, perl
 
