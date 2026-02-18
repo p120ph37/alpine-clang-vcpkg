@@ -80,10 +80,13 @@ jobs:
           MUSL_VERSION=$(docker run --rm --platform linux/amd64 "$IMAGE" \
             apk info musl 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           VCPKG_SHA=$(cut -c1-7 .vcpkg-commit)
+          VCPKG_DATE=$(docker run --rm --platform linux/amd64 "$IMAGE" \
+            git -C /opt/vcpkg log -1 --format=%cd --date=short)
           echo "ALPINE_VERSION=$ALPINE_VERSION" >> "$GITHUB_ENV"
           echo "CLANG_VERSION=$CLANG_VERSION"   >> "$GITHUB_ENV"
           echo "MUSL_VERSION=$MUSL_VERSION"     >> "$GITHUB_ENV"
           echo "VCPKG_SHA=$VCPKG_SHA"           >> "$GITHUB_ENV"
+          echo "VCPKG_DATE=$VCPKG_DATE"         >> "$GITHUB_ENV"
 
       - name: Update README version markers
         if: github.ref == 'refs/heads/main'
@@ -99,6 +102,9 @@ jobs:
             README.md
           sed -i \
             "s|<!-- vcpkg-sha -->.*<!-- /vcpkg-sha -->|<!-- vcpkg-sha -->$VCPKG_SHA<!-- /vcpkg-sha -->|" \
+            README.md
+          sed -i \
+            "s|<!-- vcpkg-date -->.*<!-- /vcpkg-date -->|<!-- vcpkg-date -->$VCPKG_DATE<!-- /vcpkg-date -->|" \
             README.md
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
