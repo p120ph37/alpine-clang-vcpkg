@@ -21,6 +21,7 @@ Two GitHub Actions workflows handle automation:
 Triggered on:
 - Any push to `main` (publishes `latest`)
 - Version tags matching `v*` (publishes `vX.Y.Z`, `vX.Y`, and `latest`)
+- Pull requests to `main` (build-only validation, no push — shown as "Validate (dry run)" in the checks UI)
 - Manual `workflow_dispatch`
 
 After a successful push it also syncs `README.md` to the Docker Hub repository description
