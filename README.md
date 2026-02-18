@@ -50,13 +50,34 @@ docker build -t alpine-clang-vcpkg .
 
 ## CI/CD
 
-The image is automatically built and pushed to Docker Hub on every push to `main` via GitHub Actions. Tag a release with `vX.Y.Z` to publish versioned images.
+Two workflows handle automation:
+
+- **`docker-publish.yml`** — builds and pushes the image on every push to `main` (or a version tag). PRs get a dry-run build without pushing.
+- **`check-vcpkg-updates.yml`** — runs daily at 06:00 UTC, queries the vcpkg HEAD commit, and commits an updated `.vcpkg-commit` file if it has changed. That commit to `main` then triggers the publish workflow automatically.
+
+Tag a release with `vX.Y.Z` to also publish versioned images alongside `latest`.
 
 ## Setup (for maintainers)
 
-Add these secrets to your GitHub repository (Settings → Secrets → Actions):
+### 1. Docker Hub access token
 
-| Secret              | Value                        |
-|---------------------|------------------------------|
-| `DOCKERHUB_USERNAME`| Your Docker Hub username     |
-| `DOCKERHUB_TOKEN`   | Docker Hub access token      |
+1. Log in to Docker Hub → **Account Settings** → **Security** → **New Access Token**
+2. Give it a description (e.g. `github-actions`) and `Read, Write, Delete` scope
+3. Copy the token — you won't see it again
+
+### 2. GitHub repository secrets
+
+Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** and add:
+
+| Secret               | Value                                      |
+|----------------------|--------------------------------------------|
+| `DOCKERHUB_USERNAME` | Your Docker Hub username                   |
+| `DOCKERHUB_TOKEN`    | The access token created in step 1         |
+
+### 3. Allow Actions to push commits (for scheduled updates)
+
+The scheduled `check-vcpkg-updates.yml` workflow commits back to `main` when vcpkg changes. For this to work:
+
+Go to **Settings** → **Actions** → **General** → **Workflow permissions** and select **Read and write permissions**.
+
+> If your repo has branch protection rules on `main` that require status checks or prevent direct pushes, you will need to either exempt the `github-actions[bot]` user or use a Personal Access Token (PAT) with write access stored as an additional secret (e.g. `GH_PAT`) and substitute it for `GITHUB_TOKEN` in the push step.

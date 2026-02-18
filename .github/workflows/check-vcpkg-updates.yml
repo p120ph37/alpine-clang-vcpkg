@@ -1,0 +1,51 @@
+name: Check vcpkg for Updates
+
+on:
+  schedule:
+    # Runs daily at 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get latest vcpkg HEAD commit
+        id: vcpkg
+        run: |
+          SHA=$(git ls-remote https://github.com/microsoft/vcpkg.git HEAD | cut -f1)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Latest vcpkg commit: $SHA"
+
+      - name: Read stored vcpkg commit
+        id: stored
+        run: |
+          if [ -f .vcpkg-commit ]; then
+            STORED=$(cat .vcpkg-commit)
+            echo "sha=$STORED" >> $GITHUB_OUTPUT
+            echo "Stored vcpkg commit: $STORED"
+          else
+            echo "sha=" >> $GITHUB_OUTPUT
+            echo "No stored commit found (first run)"
+          fi
+
+      - name: Commit updated SHA to trigger image rebuild
+        if: steps.vcpkg.outputs.sha != steps.stored.outputs.sha
+        run: |
+          echo "${{ steps.vcpkg.outputs.sha }}" > .vcpkg-commit
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .vcpkg-commit
+          git commit -m "chore: bump vcpkg to ${{ steps.vcpkg.outputs.sha }}"
+          git push
+
+      - name: No update needed
+        if: steps.vcpkg.outputs.sha == steps.stored.outputs.sha
+        run: echo "vcpkg is already up to date (${{ steps.vcpkg.outputs.sha }}), skipping rebuild."
