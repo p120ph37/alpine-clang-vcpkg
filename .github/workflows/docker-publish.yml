@@ -114,19 +114,10 @@ jobs:
           sed -i \
             "s|<!-- vcpkg-date -->.*<!-- /vcpkg-date -->|<!-- vcpkg-date -->$VCPKG_DATE<!-- /vcpkg-date -->|" \
             README.md
-          python3 << 'PYEOF'
-import re
-with open('README.md') as f:
-    content = f.read()
-with open('/tmp/pkg-table.txt') as f:
-    table = f.read().strip()
-content = re.sub(
-    r'<!-- package-list -->.*?<!-- /package-list -->',
-    f'<!-- package-list -->\n{table}\n<!-- /package-list -->',
-    content, flags=re.DOTALL)
-with open('README.md', 'w') as f:
-    f.write(content)
-PYEOF
+          TABLE_ESC=$(awk '1' ORS='\\n' /tmp/pkg-table.txt)
+          sed -z -E \
+            "s@<!-- package-list -->.*<!-- /package-list -->@<!-- package-list -->\n${TABLE_ESC}<!-- /package-list -->@" \
+            -i README.md
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
