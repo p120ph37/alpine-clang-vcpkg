@@ -119,4 +119,41 @@ RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics && \
     ln -s $VCPKG_ROOT/vcpkg /usr/local/bin/vcpkg
 
+# ── Test stage: verify the toolchain works end-to-end ────────────────────────
+#
+# Builds a small CMake project with LTO enabled, producing both a dynamically-
+# linked and a statically-linked binary.  LTO requires LLVM tools (llvm-ar,
+# lld) — GNU ar cannot parse LLVM bitcode, so a successful LTO build proves
+# the toolchain is pure-LLVM.  We also verify that LTO correctly strips the
+# unused library function from the static binary.
+FROM builder AS test
+
+COPY test/ /tmp/test/
+RUN set -eu; \
+    cmake -G Ninja -S /tmp/test -B /tmp/test/build \
+        -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build /tmp/test/build && \
+    \
+    # --- Validate: dynamic binary runs correctly ---
+    echo "Dynamic binary output: $(/tmp/test/build/hello_dynamic)" && \
+    test "$(/tmp/test/build/hello_dynamic)" = "result = 42" && \
+    \
+    # --- Validate: static binary runs correctly ---
+    echo "Static binary output: $(/tmp/test/build/hello_static)" && \
+    test "$(/tmp/test/build/hello_static)" = "result = 42" && \
+    \
+    # --- Validate: LTO stripped unused_func from the static binary ---
+    # used_func may be inlined at -O3, so we only assert unused_func is absent.
+    # Check both the symbol table and the raw string data.
+    if nm /tmp/test/build/hello_static 2>/dev/null | grep -q unused_func; then \
+        echo "FAIL: unused_func symbol not stripped by LTO" >&2; exit 1; \
+    fi && \
+    if strings /tmp/test/build/hello_static | grep -q unused_func; then \
+        echo "FAIL: unused_func string not stripped by LTO" >&2; exit 1; \
+    fi && \
+    \
+    echo "All toolchain tests passed."
+
+# ── Final image: the build environment that gets tagged / pushed ─────────────
+FROM builder
 WORKDIR /src
