@@ -44,17 +44,16 @@ RUN apk add --no-cache \
 #      in /usr/bin and in the GCC-sysroot bin dir that the clang driver uses.
 
 RUN set -eu; \
-    TARGET=$(clang -dumpmachine) && \
-    GCC_VER=$(ls /usr/lib/gcc/"$TARGET"/) && \
-    GCC_DIR=/usr/lib/gcc/"$TARGET"/"$GCC_VER" && \
-    SYSROOT_BIN=/usr/"$TARGET"/bin && \
+    # Discover paths from installed files (works on any arch without detection)
+    GCC_DIR=$(echo /usr/lib/gcc/*/*) && \
+    SYSROOT_BIN=$(echo /usr/*-linux-musl*/bin) && \
     \
     # --- (1) remove gcc compiler binaries -----------------------------------
     rm -f /usr/bin/c89 /usr/bin/c99 /usr/bin/cc /usr/bin/cpp /usr/bin/gcc \
           /usr/bin/gcc-ar /usr/bin/gcc-nm /usr/bin/gcc-ranlib \
           /usr/bin/gcov /usr/bin/gcov-dump /usr/bin/gcov-tool \
           /usr/bin/lto-dump && \
-    rm -f /usr/bin/"$TARGET"-* && \
+    rm -f /usr/bin/*-linux-musl*-* && \
     \
     # --- (2) remove gcc libraries we do not need ----------------------------
     rm -f /usr/lib/libasan*  /usr/lib/libhwasan* /usr/lib/liblsan* \
@@ -70,7 +69,7 @@ RUN set -eu; \
            "$GCC_DIR"/install-tools "$GCC_DIR"/plugin && \
     rm -f  "$GCC_DIR"/libcaf_single.a "$GCC_DIR"/libgcov.a \
            "$GCC_DIR"/libgomp.spec "$GCC_DIR"/libitm.spec && \
-    rm -f  /usr/lib/gcc/"${TARGET%%-*}"-linux-musl && \
+    find /usr/lib/gcc -maxdepth 1 -type l -delete && \
     \
     # --- (4) remove binutils binaries, libs and ld scripts ------------------
     rm -f /usr/bin/addr2line /usr/bin/ar /usr/bin/as /usr/bin/c++filt \
@@ -80,8 +79,8 @@ RUN set -eu; \
           /usr/bin/readelf /usr/bin/size /usr/bin/strings /usr/bin/strip && \
     rm -rf /usr/lib/libbfd* /usr/lib/libctf* /usr/lib/libopcodes* \
            /usr/lib/libsframe* \
-           "$SYSROOT_BIN" \
-           /usr/"$TARGET"/lib/ldscripts && \
+           /usr/*-linux-musl*/bin \
+           /usr/*-linux-musl*/lib/ldscripts && \
     \
     # --- (5) LLVM symlinks in /usr/bin --------------------------------------
     ln -s llvm-addr2line /usr/bin/addr2line && \
