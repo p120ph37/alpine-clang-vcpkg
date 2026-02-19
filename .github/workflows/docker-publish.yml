@@ -43,13 +43,13 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_REPO }}
           tags: |
-            # latest on every push to main
-            type=raw,value=latest,enable={{is_default_branch}}
+            # sha for traceability
+            type=sha,prefix=
             # semver tags: v1.2.3 -> 1.2.3, 1.2, 1
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            # sha for traceability
-            type=sha,prefix=
+            # latest on every push to main (publish last so it lists at top)
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -61,13 +61,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Sync README to Docker Hub
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_REPO }}
 
       - name: Extract version info from published image
         if: github.ref == 'refs/heads/main'
@@ -126,3 +119,10 @@ jobs:
             git commit -m "chore: update version markers in README"
             git push
           fi
+
+      - name: Sync README to Docker Hub
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_REPO }}
