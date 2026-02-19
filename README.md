@@ -1,19 +1,19 @@
 # alpine-clang-vcpkg
 
+[Dockerfile](https://github.com/p120ph37/alpine-clang-vcpkg/blob/main/Dockerfile)
+
 Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ binaries targeting musl.
 
-Available on Docker Hub as [`p120ph37/alpine-clang-vcpkg:latest`](https://hub.docker.com/r/p120ph37/alpine-clang-vcpkg)
-
-## What's included in `alpine-clang-vcpkg:latest`
+## What's included in [`p120ph37/alpine-clang-vcpkg:latest`](https://hub.docker.com/r/p120ph37/alpine-clang-vcpkg)
 
 - **Alpine <!-- alpine-version -->3.23.3<!-- /alpine-version -->** — musl <!-- musl-version -->1.2.5<!-- /musl-version --> libc base
 - **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** with lld linker
 - **vcpkg** package manager (commit <!-- vcpkg-sha --><!-- /vcpkg-sha --> from <!-- vcpkg-date -->2026-02-18<!-- /vcpkg-date -->, metrics disabled)
 - **CMake + Ninja** build system
-- Common build dependencies: autoconf, automake, libtool, pkg-config, make, perl
+- Common build dependencies: autoconf, automake, libtool, pkg-config, make, perl (full list below)
 
 <details>
-<summary>All installed Alpine packages</summary>
+<summary>List of all installed Alpine packages</summary>
 
 <!-- package-list -->
 | Package | Version |
@@ -117,7 +117,6 @@ ncurses-terminfo-base-6.5_p20251123-r0
 | Tag | Description |
 |-----|-------------|
 | `latest` | Most recent build from `main` |
-| `vX.Y.Z` | Versioned release |
 | `<sha>` | Exact commit SHA for reproducible builds |
 
 The image is automatically rebuilt when vcpkg is updated upstream.
@@ -146,10 +145,8 @@ ENTRYPOINT ["/myapp"]
 CMD []
 ```
 
-> Your `CMakePresets.json` configure preset should set the build directory to `build/` and point
-> `CMAKE_TOOLCHAIN_FILE` at `$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake` to enable vcpkg
-> integration. Choose a musl triplet such as `x64-linux-musl` or `arm64-linux-musl` to produce
-> statically linked binaries.
+> Your `CMakePresets.json` should point `CMAKE_TOOLCHAIN_FILE` at
+> `$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake` to enable vcpkg integration.
 
 ## Interactive use
 
@@ -158,7 +155,3 @@ Mount your source tree and work in a shell:
 ```bash
 docker run --rm -it -v $(pwd):/src p120ph37/alpine-clang-vcpkg:latest
 ```
-
-## Building and contributing
-
-See [BUILDING.md](BUILDING.md) for local build instructions, CI/CD details, and maintainer setup.
