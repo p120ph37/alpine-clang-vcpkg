@@ -130,6 +130,11 @@ FROM builder AS test
 
 COPY test/ /tmp/test/
 RUN set -eu; \
+    # --- Validate: CMake autodetects Clang, not GCC ---
+    # If cc still points to gcc, the toolchain overrides are broken.
+    cc --version 2>&1 | head -1 | grep -qi clang || \
+        { echo "FAIL: cc is not clang" >&2; cc --version >&2; exit 1; } && \
+    \
     cmake -G Ninja -S /tmp/test -B /tmp/test/build \
         -DCMAKE_BUILD_TYPE=Release && \
     cmake --build /tmp/test/build && \
