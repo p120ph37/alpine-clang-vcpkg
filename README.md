@@ -2,6 +2,8 @@
 
 Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ binaries targeting musl.
 
+Available on Docker Hub as [`p120ph37/alpine-clang-vcpkg:latest`](https://hub.docker.com/r/p120ph37/alpine-clang-vcpkg)
+
 ## What's included in `alpine-clang-vcpkg:latest`
 
 - **Alpine <!-- alpine-version -->3.23.3<!-- /alpine-version -->** — musl <!-- musl-version -->1.2.5<!-- /musl-version --> libc base
