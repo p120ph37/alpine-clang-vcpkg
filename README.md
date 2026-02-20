@@ -7,7 +7,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 ## What's included in [`p120ph37/alpine-clang-vcpkg:latest`](https://hub.docker.com/r/p120ph37/alpine-clang-vcpkg)
 
 - **Alpine <!-- alpine-version -->3.23.3<!-- /alpine-version -->** — musl <!-- musl-version -->1.2.5<!-- /musl-version --> libc base
-- **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** with lld linker
+- **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** with lld linker — set as system-default toolchain; LLVM tools override GCC/binutils system-wide (`cc`→`clang`, `ar`→`llvm-ar`, `ld`→`lld`, etc.), and the `gcc` package has been overridden (compiler binaries removed; retained as a dependency-marker only)
 - **vcpkg** package manager (commit <!-- vcpkg-sha -->dd930e3<!-- /vcpkg-sha --> from <!-- vcpkg-date -->2026-02-19<!-- /vcpkg-date -->, metrics disabled)
 - **CMake + Ninja** build system
 - Common build dependencies: autoconf, automake, libtool, pkg-config, make, perl (full list below)
@@ -40,7 +40,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | cmake | 4.1.3-r0 |
 | curl | 8.17.0-r1 |
 | fortify-headers | 1.1-r5 |
-| gcc | 15.2.0-r2 |
+| gcc ¹ | 15.2.0-r2 |
 | git | 2.52.0-r0 |
 | git-init-template | 2.52.0-r0 |
 | git-perl | 2.52.0-r0 |
@@ -59,7 +59,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | libgomp | 15.2.0-r2 |
 | libidn2 | 2.3.8-r0 |
 | libltdl | 2.5.4-r2 |
-libncursesw-6.5_p20251123-r0
+| libncursesw | 6.5_p20251123-r0 |
 | libpsl | 0.21.5-r3 |
 | libssl3 | 3.5.5-r0 |
 | libstdc++ | 15.2.0-r2 |
@@ -73,7 +73,7 @@ libncursesw-6.5_p20251123-r0
 | lld21-libs | 21.1.2-r1 |
 | llvm | 21-r0 |
 | llvm-linker-tools | 21-r0 |
-| llvm21 | 21.1.2-r1 |
+| llvm21 ² | 21.1.2-r1 |
 | llvm21-libs | 21.1.2-r1 |
 | llvm21-linker-tools | 21.1.2-r1 |
 | lz4-libs | 1.10.0-r0 |
@@ -84,7 +84,7 @@ libncursesw-6.5_p20251123-r0
 | musl | 1.2.5-r21 |
 | musl-dev | 1.2.5-r21 |
 | musl-utils | 1.2.5-r21 |
-ncurses-terminfo-base-6.5_p20251123-r0
+| ncurses-terminfo-base | 6.5_p20251123-r0 |
 | nghttp2-libs | 1.68.0-r0 |
 | nghttp3 | 1.13.1-r0 |
 | pcre2 | 10.47-r0 |
@@ -105,6 +105,12 @@ ncurses-terminfo-base-6.5_p20251123-r0
 | zlib | 1.3.1-r2 |
 | zstd-libs | 1.5.7-r2 |
 <!-- /package-list -->
+
+---
+
+¹ **`gcc`**: libcrt link objects only — compiler binaries (`gcc`, `cpp`, `gcov`, etc.), sanitizer libs, and headers have been removed from this package. The CRT objects (`crtbeginS.o`, `crtendS.o`) and `libgcc.a`/`libgcc_s.so` link script are kept because `clang` requires them at link time. The package record is retained in the APK database so that `apk` treats the GCC dependency as already satisfied.
+
+² **`llvm21`**: Additional symlinks were created in `/usr/bin` and the GCC-sysroot `bin` directory to make LLVM tools the system defaults, overriding GNU binutils: `ar`→`llvm-ar`, `ld`→`lld`, `nm`→`llvm-nm`, `objcopy`→`llvm-objcopy`, `objdump`→`llvm-objdump`, `ranlib`→`llvm-ranlib`, `readelf`→`llvm-readelf`, `strip`→`llvm-strip`, etc. The default C compiler `cc` is also symlinked to `clang`.
 
 </details>
 

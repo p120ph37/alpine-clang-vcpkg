@@ -6,7 +6,7 @@ on:
     tags: ['v*']
 
     paths-ignore:
-      - '*.md'
+      - '**/*.md'
   # Allow manual trigger
   workflow_dispatch:
 
@@ -96,7 +96,9 @@ jobs:
             docker run --rm --platform linux/amd64 "$IMAGE" \
               apk list --installed 2>/dev/null \
               | awk '{print $1}' | sort \
-              | sed -E 's/^(.*)-([0-9][0-9.]*-r[0-9]+)$/| \1 | \2 |/'
+              | sed -E 's/^(.*)-([0-9][0-9._a-zA-Z]*-r[0-9]+)$/| \1 | \2 |/' \
+              | sed -E 's/^\| gcc \| /| gcc ¹ | /' \
+              | sed -E 's/^\| llvm21 \| /| llvm21 ² | /'
           } > /tmp/pkg-table.txt
 
       - name: Update README version markers
