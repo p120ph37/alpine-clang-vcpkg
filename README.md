@@ -125,7 +125,6 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | `latest` | Standard build, no LTO |
 | `lto-thin` | ThinLTO with `-O2`, faster builds, ~1% larger binaries than full LTO |
 | `lto` | Full LTO with `-O2`, smallest binaries, best optimization |
-| `<sha>` | Exact commit SHA for reproducible builds |
 
 The image is automatically rebuilt when vcpkg is updated upstream.
 
