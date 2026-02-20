@@ -161,22 +161,22 @@ RUN set -eu; \
 
 # ── LTO variant images ────────────────────────────────────────────────────────
 
-# :latest-lto-thin variant
+# :lto-thin variant
 FROM builder AS lto-thin
 COPY triplets/lto-thin/arm64-linux.cmake /opt/vcpkg/triplets/
 COPY triplets/lto-thin/x64-linux.cmake /opt/vcpkg/triplets/
 COPY toolchains/lto-thin.cmake /opt/vcpkg/toolchains/
-LABEL variant="latest-lto-thin" \
+LABEL variant="lto-thin" \
       lto="thin" \
       optimization="-O2"
 WORKDIR /src
 
-# :latest-lto variant
+# :lto variant
 FROM builder AS lto
 COPY triplets/lto/arm64-linux.cmake /opt/vcpkg/triplets/
 COPY triplets/lto/x64-linux.cmake /opt/vcpkg/triplets/
 COPY toolchains/lto.cmake /opt/vcpkg/toolchains/
-LABEL variant="latest-lto" \
+LABEL variant="lto" \
       lto="full" \
       optimization="-O2"
 WORKDIR /src
