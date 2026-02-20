@@ -110,7 +110,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 ¹ **`gcc`**: libcrt link objects only — compiler binaries (`gcc`, `cpp`, `gcov`, etc.), sanitizer libs, and headers have been removed from this package. The CRT objects (`crtbeginS.o`, `crtendS.o`) and `libgcc.a`/`libgcc_s.so` link script are kept because `clang` requires them at link time. The package record is retained in the APK database so that `apk` treats the GCC dependency as already satisfied.
 
-² **`llvm21`**: Additional symlinks were created in `/usr/bin` and the GCC-sysroot `bin` directory to make LLVM tools the system defaults, overriding GNU binutils: `ar`→`llvm-ar`, `ld`→`lld`, `nm`→`llvm-nm`, `objcopy`→`llvm-objcopy`, `objdump`→`llvm-objdump`, `ranlib`→`llvm-ranlib`, `readelf`→`llvm-readelf`, `strip`→`llvm-strip`, etc. The default C compiler `cc` is also symlinked to `clang`.
+² **Versioned LLVM package**: Additional symlinks were created in `/usr/bin` and the GCC-sysroot `bin` directory to make LLVM tools the system defaults, overriding GNU binutils: `ar`→`llvm-ar`, `ld`→`lld`, `nm`→`llvm-nm`, `objcopy`→`llvm-objcopy`, `objdump`→`llvm-objdump`, `ranlib`→`llvm-ranlib`, `readelf`→`llvm-readelf`, `strip`→`llvm-strip`, etc. The default C compiler `cc` is also symlinked to `clang`.
 
 </details>
 
