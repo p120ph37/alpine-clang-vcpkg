@@ -43,8 +43,6 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_REPO }}
           tags: |
-            # sha for traceability
-            type=sha,prefix=
             # semver tags: v1.2.3 -> 1.2.3, 1.2, 1
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -57,7 +55,6 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_REPO }}
           tags: |
-            type=sha,prefix=,suffix=-lto-thin
             type=semver,pattern={{version}},suffix=-lto-thin
             type=semver,pattern={{major}}.{{minor}},suffix=-lto-thin
             type=raw,value=lto-thin,enable={{is_default_branch}}
@@ -68,7 +65,6 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_REPO }}
           tags: |
-            type=sha,prefix=,suffix=-lto
             type=semver,pattern={{version}},suffix=-lto
             type=semver,pattern={{major}}.{{minor}},suffix=-lto
             type=raw,value=lto,enable={{is_default_branch}}
