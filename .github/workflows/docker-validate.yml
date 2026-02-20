@@ -39,3 +39,21 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           cache-from: type=gha
+
+      - name: Build lto-thin variant (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: lto-thin
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+
+      - name: Build lto variant (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: lto
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
