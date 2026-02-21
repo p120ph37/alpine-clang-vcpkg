@@ -123,12 +123,34 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | Tag | Description |
 |-----|-------------|
 | `latest` | Standard build, no LTO |
-| `lto-thin` | ThinLTO with `-O2`, faster builds, ~1% larger binaries than full LTO |
-| `lto` | Full LTO with `-O2`, smallest binaries, best optimization |
+| `lto-thin` | Adds ThinLTO; faster builds, ~1% larger binaries than full LTO |
+| `lto` | Adds full LTO; smallest binaries, best optimization |
 
 The image is automatically rebuilt when vcpkg is updated upstream.
 
-LTO variants default to `-O2` optimization but can be overridden via CMake flags.
+LTO variants only add LTO flags (`-flto` / `-flto=thin`, `-ffunction-sections`,
+`-fdata-sections`, `-Wl,--gc-sections`, `-Wl,--icf=all`).  All other flags —
+including the optimization level — use CMake's built-in defaults (e.g. `-O3` for
+Release builds).
+
+### Custom compiler flags
+
+Set `EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, or `EXTRA_LDFLAGS` environment variables
+to inject flags into **all** builds, including vcpkg dependency builds.  These
+are picked up by the LTO toolchain and applied uniformly:
+
+```bash
+# Optimise for size instead of speed
+docker run --rm -e EXTRA_CFLAGS="-Oz" -e EXTRA_CXXFLAGS="-Oz" \
+    p120ph37/alpine-clang-vcpkg:lto cmake --preset release && cmake --build build
+
+# Tune for the host CPU
+docker run --rm -e EXTRA_CFLAGS="-O2 -march=native" -e EXTRA_CXXFLAGS="-O2 -march=native" \
+    p120ph37/alpine-clang-vcpkg:lto cmake --preset release && cmake --build build
+```
+
+The flags are appended to the toolchain's `CMAKE_<LANG>_FLAGS_INIT` variables,
+so they apply to both your project and its vcpkg dependencies.
 
 ## Using in a Dockerfile
 
