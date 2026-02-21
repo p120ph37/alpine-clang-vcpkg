@@ -167,8 +167,7 @@ COPY triplets/lto-thin/arm64-linux.cmake /opt/vcpkg/triplets/
 COPY triplets/lto-thin/x64-linux.cmake /opt/vcpkg/triplets/
 COPY toolchains/lto-thin.cmake /opt/vcpkg/toolchains/
 LABEL variant="lto-thin" \
-      lto="thin" \
-      optimization="-O2"
+      lto="thin"
 WORKDIR /src
 
 # :lto variant
@@ -177,8 +176,7 @@ COPY triplets/lto/arm64-linux.cmake /opt/vcpkg/triplets/
 COPY triplets/lto/x64-linux.cmake /opt/vcpkg/triplets/
 COPY toolchains/lto.cmake /opt/vcpkg/toolchains/
 LABEL variant="lto" \
-      lto="full" \
-      optimization="-O2"
+      lto="full"
 WORKDIR /src
 
 # ── Final image: the build environment that gets tagged / pushed ─────────────
