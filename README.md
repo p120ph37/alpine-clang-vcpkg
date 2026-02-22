@@ -120,6 +120,10 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 The image is automatically rebuilt when vcpkg is updated upstream.
 
+Because the entire dependency tree is compiled from source via vcpkg, this
+image is well suited for [link-time optimization (LTO)](https://github.com/p120ph37/alpine-clang-vcpkg/blob/main/LTO.md)
+across your project and all of its dependencies.
+
 ## Using in a Dockerfile
 
 Build a CMake/vcpkg project and package it into a minimal runtime image:
