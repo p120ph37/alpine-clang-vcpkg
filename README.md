@@ -191,8 +191,7 @@ uses: `-flto`, `-ffunction-sections`, `-fdata-sections`, `-march=...`.
 | `EXTRA_CXXFLAGS_<CONFIG>` | `CMAKE_CXX_FLAGS_<CONFIG>` |
 | `EXTRA_LDFLAGS_<CONFIG>` | `CMAKE_EXE_LINKER_FLAGS_<CONFIG>`, `CMAKE_SHARED_LINKER_FLAGS_<CONFIG>`, `CMAKE_MODULE_LINKER_FLAGS_<CONFIG>` |
 
-Where `<CONFIG>` is one of `RELEASE`, `DEBUG`, `MINSIZEREL`, or
-`RELWITHDEBINFO`.
+Where `<CONFIG>` is `RELEASE` or `DEBUG` (the two build types vcpkg uses).
 
 CMake's platform defaults set `CMAKE_C_FLAGS_RELEASE` to `-O3 -DNDEBUG`.
 Because the per-config flags are appended **after** the base flags, a `-Oz` in
