@@ -38,4 +38,13 @@ ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
 These use `CACHE FORCE` to replace CMake's platform defaults entirely.
 Supported configs: `RELEASE`, `DEBUG`, `MINSIZEREL`, `RELWITHDEBINFO`.
 
-See the [main README](README.md) for a complete Dockerfile example.
+> **Note:** A small number of vcpkg ports (notably **mbedTLS** and
+> **libsodium**) set their own per-config optimization flags in their
+> `CMakeLists.txt`, which take precedence over `EXTRA_CFLAGS_RELEASE`.
+> The base `-flto` flags from `EXTRA_CFLAGS` are unaffected — they flow
+> through `CMAKE_C_FLAGS` independently and still apply to these ports.
+> To override a port's hardcoded optimization level, use a
+> [vcpkg port overlay](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports).
+
+See the [main README](README.md) for a complete Dockerfile example and
+a full description of [flag precedence](README.md#flag-precedence-and-per-port-overrides).
