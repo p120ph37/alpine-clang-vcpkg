@@ -36,7 +36,7 @@ ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
 ```
 
 These use `CACHE FORCE` to replace CMake's platform defaults entirely.
-Supported configs: `RELEASE`, `DEBUG`, `MINSIZEREL`, `RELWITHDEBINFO`.
+Supported configs: `RELEASE` and `DEBUG` (the two build types vcpkg uses).
 
 > **Note:** A small number of vcpkg ports (notably **mbedTLS** and
 > **libsodium**) set their own per-config optimization flags in their

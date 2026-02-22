@@ -59,7 +59,7 @@ endif()
 #   EXTRA_CFLAGS_RELEASE="-Oz -DNDEBUG"   # size-optimized release
 #   EXTRA_CFLAGS_DEBUG="-O0 -g"            # custom debug flags
 #   EXTRA_LDFLAGS_RELEASE="-Wl,-s"         # strip only release builds
-foreach(_config RELEASE DEBUG MINSIZEREL RELWITHDEBINFO)
+foreach(_config RELEASE DEBUG)
     if(DEFINED ENV{EXTRA_CFLAGS_${_config}})
         set(CMAKE_C_FLAGS_${_config} "$ENV{EXTRA_CFLAGS_${_config}}"
             CACHE STRING "" FORCE)
