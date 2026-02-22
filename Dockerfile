@@ -122,6 +122,12 @@ RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     mv $VCPKG_ROOT/scripts/toolchains/linux.cmake \
        $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake
 
+# Install our linux.cmake wrapper (selects clang, adds EXTRA_* env-var support)
+# and promote the Linux community triplets to first-class.
+COPY toolchains/linux.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
+COPY triplets/x64-linux.cmake   $VCPKG_ROOT/triplets/
+COPY triplets/arm64-linux.cmake $VCPKG_ROOT/triplets/
+
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
 #
 # Builds a small CMake project with LTO enabled, producing both a dynamically-
@@ -161,26 +167,6 @@ RUN set -eu; \
     fi && \
     \
     echo "All toolchain tests passed."
-
-# ── LTO variant images ────────────────────────────────────────────────────────
-
-# :lto-thin variant — wrapper replaces linux.cmake with ThinLTO addendum
-FROM builder AS lto-thin
-COPY toolchains/linux-lto-thin.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
-COPY triplets/x64-linux.cmake        $VCPKG_ROOT/triplets/
-COPY triplets/arm64-linux.cmake      $VCPKG_ROOT/triplets/
-LABEL variant="lto-thin" \
-      lto="thin"
-WORKDIR /src
-
-# :lto variant — wrapper replaces linux.cmake with full-LTO addendum
-FROM builder AS lto
-COPY toolchains/linux-lto.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
-COPY triplets/x64-linux.cmake   $VCPKG_ROOT/triplets/
-COPY triplets/arm64-linux.cmake $VCPKG_ROOT/triplets/
-LABEL variant="lto" \
-      lto="full"
-WORKDIR /src
 
 # ── Final image: the build environment that gets tagged / pushed ─────────────
 FROM builder
