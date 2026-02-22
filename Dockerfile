@@ -122,11 +122,8 @@ RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     mv $VCPKG_ROOT/scripts/toolchains/linux.cmake \
        $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake
 
-# Install our linux.cmake wrapper (selects clang, adds EXTRA_* env-var support)
-# and promote the Linux community triplets to first-class.
+# Install our linux.cmake wrapper (selects clang, adds EXTRA_* env-var support).
 COPY toolchains/linux.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
-COPY triplets/x64-linux.cmake   $VCPKG_ROOT/triplets/
-COPY triplets/arm64-linux.cmake $VCPKG_ROOT/triplets/
 
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
 #
