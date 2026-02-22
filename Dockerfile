@@ -122,7 +122,7 @@ RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     mv $VCPKG_ROOT/scripts/toolchains/linux.cmake \
        $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake
 
-# Install our linux.cmake wrapper (selects clang, adds EXTRA_* env-var support).
+# Install our linux.cmake wrapper (adds EXTRA_* env-var support).
 COPY toolchains/linux.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
 
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
