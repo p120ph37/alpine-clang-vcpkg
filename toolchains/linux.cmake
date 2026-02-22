@@ -1,32 +1,27 @@
-# Alpine Clang linux.cmake wrapper
+# linux.cmake wrapper — EXTRA_* env-var support
 #
 # Installed into $VCPKG_ROOT/scripts/toolchains/linux.cmake during the Docker
 # build (the upstream file is renamed to linux-upstream.cmake first).
 #
-# This wrapper:
-#   1. Includes the upstream vcpkg Linux toolchain so that all standard
-#      setup is preserved (CMAKE_SYSTEM_NAME, -fPIC, VCPKG_C_FLAGS, cross-
-#      compilation detection, CRT linkage, etc.).
-#   2. Selects the LLVM/Clang compiler shipped in this image.
-#   3. Reads EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS from the
-#      environment so users can inject flags (LTO, optimization level,
-#      -march, etc.) into all builds at container run time.
+# This wrapper includes the upstream vcpkg Linux toolchain (preserving all
+# standard setup) and then reads EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS
+# from the environment so users can inject flags (LTO, optimization level,
+# -march, etc.) into every build at container run time or in a derived
+# Dockerfile.
+#
+# Compiler selection is handled by the symlinks installed in the image
+# (cc → clang, ld → lld, ar → llvm-ar, etc.), so no CMAKE_*_COMPILER
+# overrides are needed here.
 #
 # Because VCPKG_CHAINLOAD_TOOLCHAIN_FILE is NOT consumed by this wrapper,
 # users are free to set it in their own triplets exactly as they would on a
 # vanilla vcpkg installation.
 
-if(NOT _VCPKG_ALPINE_CLANG)
-set(_VCPKG_ALPINE_CLANG 1)
+if(NOT _VCPKG_LINUX_EXTRA_FLAGS)
+set(_VCPKG_LINUX_EXTRA_FLAGS 1)
 
-# ── 1. Upstream vcpkg linux toolchain ────────────────────────────────────────
 include("${CMAKE_CURRENT_LIST_DIR}/linux-upstream.cmake")
 
-# ── 2. Compiler selection ────────────────────────────────────────────────────
-set(CMAKE_C_COMPILER   clang)
-set(CMAKE_CXX_COMPILER clang++)
-
-# ── 3. User-customizable flags ──────────────────────────────────────────────
 # Set EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS in the environment to
 # inject flags into ALL builds, including vcpkg dependency builds.
 #
