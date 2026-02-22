@@ -49,26 +49,6 @@ jobs:
             # latest on every push to main (publish last so it lists at top)
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Extract metadata (lto-thin tags, labels)
-        id: meta-lto-thin
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKERHUB_REPO }}
-          tags: |
-            type=semver,pattern={{version}},suffix=-lto-thin
-            type=semver,pattern={{major}}.{{minor}},suffix=-lto-thin
-            type=raw,value=lto-thin,enable={{is_default_branch}}
-
-      - name: Extract metadata (lto tags, labels)
-        id: meta-lto
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKERHUB_REPO }}
-          tags: |
-            type=semver,pattern={{version}},suffix=-lto
-            type=semver,pattern={{major}}.{{minor}},suffix=-lto
-            type=raw,value=lto,enable={{is_default_branch}}
-
       - name: Run toolchain tests
         uses: docker/build-push-action@v6
         with:
@@ -87,28 +67,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-
-      - name: Build and push (lto-thin variant)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: lto-thin
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-lto-thin.outputs.tags }}
-          labels: ${{ steps.meta-lto-thin.outputs.labels }}
-          cache-from: type=gha
-
-      - name: Build and push (lto variant)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: lto
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-lto.outputs.tags }}
-          labels: ${{ steps.meta-lto.outputs.labels }}
           cache-from: type=gha
 
       - name: Extract version info from published image
