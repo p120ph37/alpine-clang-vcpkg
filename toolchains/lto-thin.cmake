@@ -24,7 +24,7 @@ set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld -flto=thin -Wl,--gc-sections -W
 # inject flags into ALL builds, including vcpkg dependency builds.
 #
 # Examples:
-#   EXTRA_CFLAGS="-Oz"                  # optimise for size everywhere
+#   EXTRA_CFLAGS="-Oz"                  # optimize for size everywhere
 #   EXTRA_CFLAGS="-O2 -march=native"    # tune for the build machine
 #   EXTRA_LDFLAGS="-Wl,-s"             # strip symbols at link time
 if(DEFINED ENV{EXTRA_CFLAGS})
