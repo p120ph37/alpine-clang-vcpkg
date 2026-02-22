@@ -161,6 +161,100 @@ CMD []
 > Your `CMakePresets.json` should point `CMAKE_TOOLCHAIN_FILE` at
 > `$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake` to enable vcpkg integration.
 
+## `EXTRA_*` environment variables
+
+The image's CMake toolchain reads `EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, and
+`EXTRA_LDFLAGS` from the environment and injects them into every build —
+including vcpkg dependency builds.  This is a lightweight alternative to
+creating custom vcpkg triplets: the same flags that a triplet would set can be
+controlled entirely through `ENV` lines in a Dockerfile (or `docker run -e`),
+without maintaining separate triplet files for each architecture or
+configuration variant.
+
+### Base flags (all build types)
+
+| Variable | Applies to |
+|---|---|
+| `EXTRA_CFLAGS` | C compiler invocations |
+| `EXTRA_CXXFLAGS` | C++ compiler invocations |
+| `EXTRA_LDFLAGS` | Executable, shared-library, and module linker invocations |
+
+These are appended to `CMAKE_<LANG>_FLAGS_INIT`, so they appear on **every**
+compiler or linker command line regardless of the CMake build type.  Typical
+uses: `-flto`, `-ffunction-sections`, `-fdata-sections`, `-march=...`.
+
+### Per-config overrides
+
+| Variable | Replaces default for |
+|---|---|
+| `EXTRA_CFLAGS_<CONFIG>` | `CMAKE_C_FLAGS_<CONFIG>` |
+| `EXTRA_CXXFLAGS_<CONFIG>` | `CMAKE_CXX_FLAGS_<CONFIG>` |
+| `EXTRA_LDFLAGS_<CONFIG>` | `CMAKE_EXE_LINKER_FLAGS_<CONFIG>`, `CMAKE_SHARED_LINKER_FLAGS_<CONFIG>`, `CMAKE_MODULE_LINKER_FLAGS_<CONFIG>` |
+
+Where `<CONFIG>` is one of `RELEASE`, `DEBUG`, `MINSIZEREL`, or
+`RELWITHDEBINFO`.
+
+CMake's platform defaults set `CMAKE_C_FLAGS_RELEASE` to `-O3 -DNDEBUG`.
+Because the per-config flags are appended **after** the base flags, a `-Oz` in
+`EXTRA_CFLAGS` would be silently overridden by that default `-O3`.  The
+per-config variables solve this: `EXTRA_CFLAGS_RELEASE="-Oz -DNDEBUG"` uses
+`CACHE FORCE` to replace the platform default entirely.
+
+When a per-config variable is **not** set, the platform default is left
+untouched — existing behavior is completely unchanged.
+
+### Flag precedence and per-port overrides
+
+The final compiler command for a Release build looks like:
+
+```
+<CMAKE_C_FLAGS>  <CMAKE_C_FLAGS_RELEASE>
+ ↑ base flags     ↑ per-config flags
+```
+
+The base `EXTRA_CFLAGS` always appear in the command (via `CMAKE_C_FLAGS`), so
+flags like `-flto` are always in effect.  The per-config `EXTRA_CFLAGS_RELEASE`
+replaces the **platform default** for `CMAKE_C_FLAGS_RELEASE`, but individual
+vcpkg ports can still override that value in their own `CMakeLists.txt`:
+
+- A port that calls `set(CMAKE_C_FLAGS_RELEASE ...)` (without `CACHE`) creates
+  a normal CMake variable that **shadows** the cache entry.  The port's value
+  wins within its own build.
+- A port that calls `set(CMAKE_C_FLAGS_RELEASE ... CACHE STRING "" FORCE)`
+  overwrites the cache entry.  Again, the port's value wins.
+
+In practice this means a small number of ports ship their own optimization
+flags that will take precedence over `EXTRA_CFLAGS_RELEASE`.  Notable examples:
+
+- **mbedTLS** — hardcodes `-O2` for Release builds.
+- **libsodium** — may set its own optimization level.
+
+For these ports the base `EXTRA_CFLAGS` (e.g. `-flto`) still take effect,
+since they flow through `CMAKE_C_FLAGS` independently.  Only the per-config
+optimization level is overridden by the port.  If you need to force a specific
+optimization level onto such a port, use a
+[vcpkg port overlay](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports)
+to patch the port's build scripts.
+
+The vast majority of vcpkg ports do **not** set their own per-config flags and
+will use whatever `EXTRA_CFLAGS_<CONFIG>` provides (or the CMake platform
+default if the variable is unset).
+
+### Example
+
+```dockerfile
+# Base flags: applied to every compilation and link
+ENV EXTRA_CFLAGS="-flto -ffunction-sections -fdata-sections"
+ENV EXTRA_CXXFLAGS="-flto -ffunction-sections -fdata-sections"
+ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
+
+# Per-config: replace CMake's default -O3 with -Oz for Release builds
+ENV EXTRA_CFLAGS_RELEASE="-Oz -DNDEBUG"
+ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
+```
+
+For more details on LTO specifically, see [LTO.md](LTO.md).
+
 ## Interactive use
 
 Mount your source tree and work in a shell:
