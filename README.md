@@ -254,6 +254,39 @@ ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
 
 For more details on LTO specifically, see [LTO.md](LTO.md).
 
+### Static linking with vcpkg
+
+vcpkg's default Linux triplets build **shared** libraries.  To get fully static
+binaries (as shown in the `FROM scratch` example above), tell vcpkg to build
+static libraries by creating a custom triplet — for example,
+`triplets/x64-linux-musl.cmake`:
+
+```cmake
+set(VCPKG_TARGET_ARCHITECTURE x64)    # or arm64
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
+set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+```
+
+Then reference it in your `CMakePresets.json`:
+
+```json
+{
+  "configurePresets": [{
+    "name": "release",
+    "cacheVariables": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "VCPKG_TARGET_TRIPLET": "x64-linux-musl",
+      "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
+    }
+  }]
+}
+```
+
+You will also need to pass `-static` to the linker for your own executables
+(e.g. `target_link_options(myapp PRIVATE -static)` in CMake).
+
 ## Interactive use
 
 Mount your source tree and work in a shell:
