@@ -120,13 +120,6 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 The image is automatically rebuilt when vcpkg is updated upstream.
 
-### Custom compiler flags
-
-Set `EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, or `EXTRA_LDFLAGS` environment variables
-to inject flags into **all** builds, including vcpkg dependency builds.  The
-flags are appended to the toolchain's `CMAKE_<LANG>_FLAGS_INIT` variables, so
-they apply uniformly to both your project and its vcpkg dependencies.
-
 ## Using in a Dockerfile
 
 Build a CMake/vcpkg project and package it into a minimal runtime image:
@@ -134,10 +127,15 @@ Build a CMake/vcpkg project and package it into a minimal runtime image:
 ```dockerfile
 FROM p120ph37/alpine-clang-vcpkg:latest AS builder
 
-# Copy source into container
+# Optional: inject extra compiler/linker flags into all builds (including
+# vcpkg dependencies).  For example, enable full LTO and optimize for size:
+ENV EXTRA_CFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
+ENV EXTRA_CXXFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
+ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
+
 COPY ./ ./
 
-# Configure and build
+# Install vcpkg dependencies and build
 RUN cmake --preset release && \
     cmake --build build
 
@@ -145,34 +143,6 @@ RUN cmake --preset release && \
 RUN ctest --test-dir build --output-on-failure
 
 # Minimal runtime image (statically linked binary needs no base OS)
-FROM scratch AS runtime
-COPY --from=builder /src/build/myapp /myapp
-ENTRYPOINT ["/myapp"]
-CMD []
-```
-
-### Enabling LTO and size optimization
-
-Use `EXTRA_CFLAGS` / `EXTRA_CXXFLAGS` / `EXTRA_LDFLAGS` to apply flags globally
-— they affect both your project and all vcpkg dependencies built from source:
-
-```dockerfile
-FROM p120ph37/alpine-clang-vcpkg:latest AS builder
-
-# Enable full LTO and optimize for size
-ENV EXTRA_CFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
-ENV EXTRA_CXXFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
-ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
-
-COPY ./ ./
-
-# Install vcpkg dependencies (built with LTO + -Oz)
-RUN vcpkg install
-
-# Configure and build your project (also built with LTO + -Oz)
-RUN cmake --preset release && \
-    cmake --build build
-
 FROM scratch AS runtime
 COPY --from=builder /src/build/myapp /myapp
 ENTRYPOINT ["/myapp"]
