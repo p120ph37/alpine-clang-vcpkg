@@ -140,7 +140,7 @@ to inject flags into **all** builds, including vcpkg dependency builds.  These
 are picked up by the LTO toolchain and applied uniformly:
 
 ```bash
-# Optimise for size instead of speed
+# Optimize for size instead of speed
 docker run --rm -e EXTRA_CFLAGS="-Oz" -e EXTRA_CXXFLAGS="-Oz" \
     p120ph37/alpine-clang-vcpkg:lto cmake --preset release && cmake --build build
 
