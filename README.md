@@ -254,38 +254,36 @@ ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
 
 For more details on LTO specifically, see [LTO.md](LTO.md).
 
-### Static linking with vcpkg
+### Static linking
 
-vcpkg's default Linux triplets build **shared** libraries.  To get fully static
-binaries (as shown in the `FROM scratch` example above), tell vcpkg to build
-static libraries by creating a custom triplet — for example,
-`triplets/x64-linux-musl.cmake`:
+Everything in this image is ready for fully-static binaries out of the box:
+
+- **vcpkg** already builds **static libraries by default** on Linux — the
+  built-in `x64-linux` and `arm64-linux` triplets set `VCPKG_LIBRARY_LINKAGE`
+  to `static`
+  ([background](https://github.com/microsoft/vcpkg/issues/9295)).
+  No custom triplets are needed.
+- **Alpine** ships static archives (`.a`) for all system-level dev packages,
+  including musl libc itself, so every library the linker might need is
+  available for static linking.
+
+The only project-level configuration required is telling CMake to produce a
+static executable and to prefer `.a` files when resolving system libraries:
 
 ```cmake
-set(VCPKG_TARGET_ARCHITECTURE x64)    # or arm64
-set(VCPKG_CRT_LINKAGE dynamic)
-set(VCPKG_LIBRARY_LINKAGE static)
-set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 ```
 
-Then reference it in your `CMakePresets.json`:
+`-static` instructs the linker to produce a fully static binary (no runtime
+dependency on shared libraries).  `CMAKE_FIND_LIBRARY_SUFFIXES` ensures that
+CMake's `find_library()` picks up `.a` files rather than `.so` for any
+system-level libraries resolved at configure time.  vcpkg-managed dependencies
+are unaffected by this setting — their linkage is controlled by the triplet,
+which already defaults to static.
 
-```json
-{
-  "configurePresets": [{
-    "name": "release",
-    "cacheVariables": {
-      "CMAKE_BUILD_TYPE": "Release",
-      "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-      "VCPKG_TARGET_TRIPLET": "x64-linux-musl",
-      "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
-    }
-  }]
-}
-```
-
-You will also need to pass `-static` to the linker for your own executables
-(e.g. `target_link_options(myapp PRIVATE -static)` in CMake).
+The resulting binary is self-contained and can run in a minimal `FROM scratch`
+Docker image with no base OS (as shown in the quick-start example above).
 
 ## Interactive use
 
