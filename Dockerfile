@@ -117,7 +117,10 @@ ENV VCPKG_ROOT=/opt/vcpkg
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
 RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics && \
-    ln -s $VCPKG_ROOT/vcpkg /usr/local/bin/vcpkg
+    ln -s $VCPKG_ROOT/vcpkg /usr/local/bin/vcpkg && \
+    # Rename the upstream linux toolchain so our wrapper can include() it.
+    mv $VCPKG_ROOT/scripts/toolchains/linux.cmake \
+       $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake
 
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
 #
@@ -161,20 +164,20 @@ RUN set -eu; \
 
 # ── LTO variant images ────────────────────────────────────────────────────────
 
-# :lto-thin variant
+# :lto-thin variant — wrapper replaces linux.cmake with ThinLTO addendum
 FROM builder AS lto-thin
-COPY triplets/lto-thin/arm64-linux.cmake /opt/vcpkg/triplets/
-COPY triplets/lto-thin/x64-linux.cmake /opt/vcpkg/triplets/
-COPY toolchains/lto-thin.cmake /opt/vcpkg/toolchains/
+COPY toolchains/linux-lto-thin.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
+COPY triplets/x64-linux.cmake        $VCPKG_ROOT/triplets/
+COPY triplets/arm64-linux.cmake      $VCPKG_ROOT/triplets/
 LABEL variant="lto-thin" \
       lto="thin"
 WORKDIR /src
 
-# :lto variant
+# :lto variant — wrapper replaces linux.cmake with full-LTO addendum
 FROM builder AS lto
-COPY triplets/lto/arm64-linux.cmake /opt/vcpkg/triplets/
-COPY triplets/lto/x64-linux.cmake /opt/vcpkg/triplets/
-COPY toolchains/lto.cmake /opt/vcpkg/toolchains/
+COPY toolchains/linux-lto.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
+COPY triplets/x64-linux.cmake   $VCPKG_ROOT/triplets/
+COPY triplets/arm64-linux.cmake $VCPKG_ROOT/triplets/
 LABEL variant="lto" \
       lto="full"
 WORKDIR /src
