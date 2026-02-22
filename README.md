@@ -133,9 +133,14 @@ FROM p120ph37/alpine-clang-vcpkg:latest AS builder
 
 # Optional: inject extra compiler/linker flags into all builds (including
 # vcpkg dependencies).  For example, enable full LTO and optimize for size:
-ENV EXTRA_CFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
-ENV EXTRA_CXXFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
+ENV EXTRA_CFLAGS="-flto -ffunction-sections -fdata-sections"
+ENV EXTRA_CXXFLAGS="-flto -ffunction-sections -fdata-sections"
 ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
+
+# Optional: override per-config flags (replaces CMake defaults like -O3).
+# Use these when base EXTRA_* flags would be overridden by the build type.
+ENV EXTRA_CFLAGS_RELEASE="-Oz -DNDEBUG"
+ENV EXTRA_CXXFLAGS_RELEASE="-Oz -DNDEBUG"
 
 COPY ./ ./
 
