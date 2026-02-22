@@ -118,39 +118,14 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 `linux/amd64` and `linux/arm64`
 
-## Image tags
-
-| Tag | Description |
-|-----|-------------|
-| `latest` | Standard build, no LTO |
-| `lto-thin` | Adds ThinLTO; faster builds, ~1% larger binaries than full LTO |
-| `lto` | Adds full LTO; smallest binaries, best optimization |
-
 The image is automatically rebuilt when vcpkg is updated upstream.
-
-LTO variants only add LTO flags (`-flto` / `-flto=thin`, `-ffunction-sections`,
-`-fdata-sections`, `-Wl,--gc-sections`, `-Wl,--icf=all`).  All other flags —
-including the optimization level — use CMake's built-in defaults (e.g. `-O3` for
-Release builds).
 
 ### Custom compiler flags
 
 Set `EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, or `EXTRA_LDFLAGS` environment variables
-to inject flags into **all** builds, including vcpkg dependency builds.  These
-are picked up by the LTO toolchain and applied uniformly:
-
-```bash
-# Optimize for size instead of speed
-docker run --rm -e EXTRA_CFLAGS="-Oz" -e EXTRA_CXXFLAGS="-Oz" \
-    p120ph37/alpine-clang-vcpkg:lto cmake --preset release && cmake --build build
-
-# Tune for the host CPU
-docker run --rm -e EXTRA_CFLAGS="-O2 -march=native" -e EXTRA_CXXFLAGS="-O2 -march=native" \
-    p120ph37/alpine-clang-vcpkg:lto cmake --preset release && cmake --build build
-```
-
-The flags are appended to the toolchain's `CMAKE_<LANG>_FLAGS_INIT` variables,
-so they apply to both your project and its vcpkg dependencies.
+to inject flags into **all** builds, including vcpkg dependency builds.  The
+flags are appended to the toolchain's `CMAKE_<LANG>_FLAGS_INIT` variables, so
+they apply uniformly to both your project and its vcpkg dependencies.
 
 ## Using in a Dockerfile
 
@@ -170,6 +145,34 @@ RUN cmake --preset release && \
 RUN ctest --test-dir build --output-on-failure
 
 # Minimal runtime image (statically linked binary needs no base OS)
+FROM scratch AS runtime
+COPY --from=builder /src/build/myapp /myapp
+ENTRYPOINT ["/myapp"]
+CMD []
+```
+
+### Enabling LTO and size optimization
+
+Use `EXTRA_CFLAGS` / `EXTRA_CXXFLAGS` / `EXTRA_LDFLAGS` to apply flags globally
+— they affect both your project and all vcpkg dependencies built from source:
+
+```dockerfile
+FROM p120ph37/alpine-clang-vcpkg:latest AS builder
+
+# Enable full LTO and optimize for size
+ENV EXTRA_CFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
+ENV EXTRA_CXXFLAGS="-flto -Oz -ffunction-sections -fdata-sections"
+ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
+
+COPY ./ ./
+
+# Install vcpkg dependencies (built with LTO + -Oz)
+RUN vcpkg install
+
+# Configure and build your project (also built with LTO + -Oz)
+RUN cmake --preset release && \
+    cmake --build build
+
 FROM scratch AS runtime
 COPY --from=builder /src/build/myapp /myapp
 ENTRYPOINT ["/myapp"]
