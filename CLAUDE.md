@@ -23,6 +23,7 @@ Published to Docker Hub as `p120ph37/alpine-clang-vcpkg`.
 │   ├── docker-validate.yml            # CI: dry-run validation on PRs
 │   └── check-vcpkg-updates.yml        # Scheduled daily vcpkg bump
 ├── .vcpkg-commit                      # Pinned vcpkg commit SHA (updated by CI)
+├── setup-docker.sh                    # Docker setup for Claude Code web agent (proxy CA, dockerd)
 ├── .dockerignore                      # Excludes .git, .github, README.md, LICENSE from build context
 ├── README.md                          # Main docs (contains CI-updated version markers)
 ├── LTO.md                             # Link-time optimization guide
@@ -133,6 +134,29 @@ Edit files in the `test/` directory and/or the `RUN` block in the Dockerfile `te
 
 ### Updating vcpkg manually
 Write the desired commit SHA to `.vcpkg-commit` and commit. CI will rebuild with that version.
+
+## Docker in Claude Code web agent
+
+The `setup-docker.sh` script configures Docker for use inside the Claude Code web agent sandbox, which lacks iptables support and uses a TLS-intercepting HTTPS proxy.
+
+### Quick start
+
+```bash
+source setup-docker.sh   # defines setup_docker and docker-build functions
+setup_docker              # starts dockerd, extracts proxy CA, configures proxy
+docker-build --target test -t alpine-clang-vcpkg-test .
+```
+
+### What it does
+
+1. **Starts `dockerd`** with `--iptables=false --bridge=none --storage-driver=vfs` (required since the sandbox lacks iptables and overlayfs)
+2. **Extracts the proxy CA** from the system trust store (looks for "sandbox-egress-production TLS Inspection CA")
+3. **Configures Docker proxy** settings in `~/.docker/config.json`
+4. **Provides `docker-build`** — a wrapper around `docker build` that auto-injects the proxy CA into Dockerfiles and adds `--network=host`
+
+### Why a Dockerfile wrapper instead of a daemon config?
+
+Docker has no daemon-level mechanism to inject CA certificates into build containers (unlike `resolv.conf` which has special handling). BuildKit's `buildkitd.toml` CA config only affects registry connections, not operations inside `RUN` commands (`apk add`, `curl`, `git clone`, etc.). The `docker-build` wrapper transparently transforms the Dockerfile to inject the CA after each `FROM` line.
 
 ## Things to avoid
 

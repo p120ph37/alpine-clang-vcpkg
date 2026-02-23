@@ -3,3 +3,5 @@
 README.md
 LICENSE
 .dockerignore
+setup-docker.sh
+proxy-ca.pem
