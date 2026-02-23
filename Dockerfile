@@ -5,8 +5,11 @@ FROM alpine:latest AS builder
 RUN apk add --no-cache \
     clang \
     clang-static \
+    compiler-rt \
     lld \
     llvm \
+    llvm-libunwind-dev \
+    llvm-libunwind-static \
     musl-dev \
     cmake \
     ninja \
@@ -42,6 +45,12 @@ RUN apk add --no-cache \
 #      will see the dependency as already satisfied and skip re-installation.
 #   5. Replace every removed tool with a symlink to its LLVM equivalent — both
 #      in /usr/bin and in the GCC-sysroot bin dir that the clang driver uses.
+#
+# Note: The CMake toolchain wrapper sets --rtlib=compiler-rt and
+# --unwindlib=libunwind so that builds link against LLVM's compiler-rt builtins
+# and libunwind instead of libgcc/libgcc_s.  The GCC CRT objects and libgcc
+# files are still retained because the clang driver references them for startup
+# object discovery, and to allow users to opt back to libgcc if needed.
 
 RUN set -eu; \
     # Discover paths from installed files (works on any arch without detection)
