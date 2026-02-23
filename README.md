@@ -8,7 +8,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 - **Alpine <!-- alpine-version -->3.23.3<!-- /alpine-version -->** — musl <!-- musl-version -->1.2.5<!-- /musl-version --> libc base
 - **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** — set as system-default toolchain; LLVM tools override GCC/binutils system-wide (`cc`→`clang`, `ar`→`llvm-ar`, `ld`→`lld`, etc.); builds link against LLVM's **compiler-rt** and **libunwind** instead of `libgcc`; the `gcc` package has been overridden (compiler binaries removed; retained as a dependency-marker only)
-- **vcpkg** package manager (commit <!-- vcpkg-sha -->0544202<!-- /vcpkg-sha --> from <!-- vcpkg-date -->2026-02-20<!-- /vcpkg-date -->, metrics disabled)
+- **vcpkg** package manager (commit <!-- vcpkg-sha -->0544202<!-- /vcpkg-sha --> from <!-- vcpkg-date -->2026-02-23<!-- /vcpkg-date -->, metrics disabled)
 - **CMake + Ninja** build system
 - Some common build dependencies: autoconf, automake, libtool, pkg-config, make, perl (full list below)
 
@@ -38,6 +38,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | clang21-libs | 21.1.2-r2 |
 | clang21-static | 21.1.2-r2 |
 | cmake | 4.1.3-r0 |
+| compiler-rt | 21.1.2-r0 |
 | curl | 8.17.0-r1 |
 | fortify-headers | 1.1-r5 |
 | gcc ¹ | 15.2.0-r2 |
@@ -72,6 +73,9 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | lld21 | 21.1.2-r1 |
 | lld21-libs | 21.1.2-r1 |
 | llvm | 21-r0 |
+| llvm-libunwind | 21.1.2-r0 |
+| llvm-libunwind-dev | 21.1.2-r0 |
+| llvm-libunwind-static | 21.1.2-r0 |
 | llvm-linker-tools | 21-r0 |
 | llvm21 ² | 21.1.2-r1 |
 | llvm21-libs | 21.1.2-r1 |
@@ -87,6 +91,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 | ncurses-terminfo-base | 6.5_p20251123-r0 |
 | nghttp2-libs | 1.68.0-r0 |
 | nghttp3 | 1.13.1-r0 |
+| patch | 2.8-r0 |
 | pcre2 | 10.47-r0 |
 | perl | 5.42.0-r0 |
 | perl-error | 0.17030-r0 |
