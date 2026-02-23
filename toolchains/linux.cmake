@@ -1,13 +1,14 @@
-# linux.cmake wrapper — EXTRA_* env-var support
+# linux.cmake wrapper — compiler-rt default + EXTRA_* env-var support
 #
 # Installed into $VCPKG_ROOT/scripts/toolchains/linux.cmake during the Docker
 # build (the upstream file is renamed to linux-upstream.cmake first).
 #
 # This wrapper includes the upstream vcpkg Linux toolchain (preserving all
-# standard setup) and then reads EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS
-# from the environment so users can inject flags (LTO, optimization level,
-# -march, etc.) into every build at container run time or in a derived
-# Dockerfile.
+# standard setup), selects LLVM's compiler-rt and libunwind as the default
+# runtime libraries (instead of GCC's libgcc/libgcc_s), and then reads
+# EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS from the environment so users
+# can inject flags (LTO, optimization level, -march, etc.) into every build at
+# container run time or in a derived Dockerfile.
 #
 # Compiler selection is handled by the symlinks installed in the image
 # (cc → clang, ld → lld, ar → llvm-ar, etc.), so no CMAKE_*_COMPILER
@@ -21,6 +22,15 @@ if(NOT _VCPKG_LINUX_EXTRA_FLAGS)
 set(_VCPKG_LINUX_EXTRA_FLAGS 1)
 
 include("${CMAKE_CURRENT_LIST_DIR}/linux-upstream.cmake")
+
+# ── Runtime library: compiler-rt + libunwind (instead of libgcc) ─────
+# Use LLVM's compiler-rt builtins and libunwind instead of GCC's libgcc
+# and libgcc_s.  These flags are passed to the clang driver at link time.
+# To revert to libgcc for a specific build, pass --rtlib=libgcc and/or
+# --unwindlib=libgcc_s via EXTRA_LDFLAGS.
+string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT    " --rtlib=compiler-rt --unwindlib=libunwind")
+string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
+string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
 
 # ── Base flags (all build types) ─────────────────────────────────────
 # Set EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS in the environment to

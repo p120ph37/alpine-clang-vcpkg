@@ -7,7 +7,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 ## What's included in [`p120ph37/alpine-clang-vcpkg:latest`](https://hub.docker.com/r/p120ph37/alpine-clang-vcpkg)
 
 - **Alpine <!-- alpine-version -->3.23.3<!-- /alpine-version -->** — musl <!-- musl-version -->1.2.5<!-- /musl-version --> libc base
-- **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** — set as system-default toolchain; LLVM tools override GCC/binutils system-wide (`cc`→`clang`, `ar`→`llvm-ar`, `ld`→`lld`, etc.), and the `gcc` package has been overridden (compiler binaries removed; retained as a dependency-marker only)
+- **clang/LLVM <!-- clang-version -->21.1.2<!-- /clang-version -->** — set as system-default toolchain; LLVM tools override GCC/binutils system-wide (`cc`→`clang`, `ar`→`llvm-ar`, `ld`→`lld`, etc.); builds link against LLVM's **compiler-rt** and **libunwind** instead of `libgcc`; the `gcc` package has been overridden (compiler binaries removed; retained as a dependency-marker only)
 - **vcpkg** package manager (commit <!-- vcpkg-sha -->0544202<!-- /vcpkg-sha --> from <!-- vcpkg-date -->2026-02-20<!-- /vcpkg-date -->, metrics disabled)
 - **CMake + Ninja** build system
 - Some common build dependencies: autoconf, automake, libtool, pkg-config, make, perl (full list below)
@@ -108,7 +108,7 @@ Alpine Linux Docker image with clang/LLVM and vcpkg for building static C/C++ bi
 
 ---
 
-¹ **`gcc`**: libcrt link objects only — compiler binaries (`gcc`, `cpp`, `gcov`, etc.), sanitizer libs, and headers have been removed from this package. The CRT objects (`crtbeginS.o`, `crtendS.o`) and `libgcc.a`/`libgcc_s.so` link script are kept because `clang` requires them at link time. The package record is retained in the APK database so that `apk` treats the GCC dependency as already satisfied.
+¹ **`gcc`**: libcrt link objects only — compiler binaries (`gcc`, `cpp`, `gcov`, etc.), sanitizer libs, and headers have been removed from this package. The CRT objects (`crtbeginS.o`, `crtendS.o`) and `libgcc.a`/`libgcc_s.so` link script are kept because the `clang` driver references the GCC resource directory for startup object discovery. Builds link against **compiler-rt** and **libunwind** by default (set in the CMake toolchain); pass `--rtlib=libgcc --unwindlib=libgcc_s` via `EXTRA_LDFLAGS` to revert. The package record is retained in the APK database so that `apk` treats the GCC dependency as already satisfied.
 
 ² **`llvm`**: Additional symlinks were created in `/usr/bin` and the GCC-sysroot `bin` directory to make LLVM tools the system defaults, overriding GNU binutils: `ar`→`llvm-ar`, `ld`→`lld`, `nm`→`llvm-nm`, `objcopy`→`llvm-objcopy`, `objdump`→`llvm-objdump`, `ranlib`→`llvm-ranlib`, `readelf`→`llvm-readelf`, `strip`→`llvm-strip`, etc. The default C compiler `cc` is also symlinked to `clang`.
 
