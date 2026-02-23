@@ -6,6 +6,15 @@ source.  This produces smaller, faster binaries than per-library optimization
 alone because the linker can inline across library boundaries, eliminate unused
 code globally, and perform whole-program devirtualization.
 
+## musl libc LTO
+
+The base image rebuilds musl libc from Alpine's source with `-flto`, so
+`libc.a` contains LLVM bitcode instead of native object code.  When you
+build a static binary with LTO enabled, the linker can optimize across
+your application, vcpkg libraries, **and** the C library in a single
+whole-program LTO pass.  No extra configuration is needed — just set the
+`EXTRA_*` flags shown below.
+
 ## Quick start
 
 Set the `EXTRA_*` environment variables before any build step:

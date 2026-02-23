@@ -121,6 +121,65 @@ RUN set -eu; \
     ln -s /usr/bin/llvm-readelf "$SYSROOT_BIN"/readelf && \
     ln -s /usr/bin/llvm-strip   "$SYSROOT_BIN"/strip
 
+# ── Rebuild musl with LTO ────────────────────────────────────────────────
+#
+# Alpine's musl is compiled without -flto, so libc.a contains native objects
+# that cannot participate in link-time optimization.  We rebuild musl from
+# Alpine's exact source + patches, adding -flto so that:
+#   • libc.a contains LLVM bitcode — static binaries get whole-program LTO
+#     across the application/libc boundary
+#   • libc.so (the dynamic linker) is linked with LTO for better codegen
+#   • CRT objects (crt1.o, crti.o, …) contain bitcode as well
+#
+# Everything (fetch, build, install, cleanup) runs in a single RUN so that
+# intermediate files never appear in a layer.
+
+RUN set -eu; \
+    # Fetch Alpine's musl source tree (patches + supplementary files)
+    ALPINE_VER=$(cut -d. -f1,2 /etc/alpine-release) && \
+    git clone --depth 1 --branch "${ALPINE_VER}-stable" \
+        --filter=blob:none --sparse \
+        https://git.alpinelinux.org/aports /tmp/aports && \
+    cd /tmp/aports && git sparse-checkout set main/musl && \
+    \
+    # Extract musl upstream version from APKBUILD
+    MUSL_VER=$(sed -n 's/^pkgver=//p' /tmp/aports/main/musl/APKBUILD) && \
+    \
+    # Download and extract musl source
+    curl -fsSL "https://musl.libc.org/releases/musl-${MUSL_VER}.tar.gz" \
+        | tar xz -C /tmp && \
+    cd /tmp/musl-${MUSL_VER} && \
+    \
+    # Apply Alpine's patches in APKBUILD-listed order
+    sed -n 's/^[[:space:]]*//; /\.patch$/p' /tmp/aports/main/musl/APKBUILD \
+    | while read -r p; do \
+        patch -p1 < "/tmp/aports/main/musl/$p"; \
+    done && \
+    \
+    # Replicate Alpine's prepare(): remove hand-optimized x86_64 string
+    # functions (no-op on other arches) and write the VERSION file
+    rm -f src/string/x86_64/memcpy.s src/string/x86_64/memmove.s && \
+    echo "${MUSL_VER}" > VERSION && \
+    \
+    # Configure and build with LTO.
+    # musl's configure adds its own -Os; we only append -flto for bitcode.
+    CFLAGS="-flto" \
+    LDFLAGS="-flto" \
+    ./configure \
+        --prefix=/usr \
+        --sysconfdir=/etc \
+        --enable-debug && \
+    make -j$(nproc) && \
+    make install && \
+    \
+    # Rebuild libssp_nonshared.a with LTO bitcode
+    cc -flto -c /tmp/aports/main/musl/__stack_chk_fail_local.c \
+        -o /tmp/__stack_chk_fail_local.o && \
+    ar rcs /usr/lib/libssp_nonshared.a /tmp/__stack_chk_fail_local.o && \
+    \
+    # Cleanup
+    rm -rf /tmp/aports /tmp/musl-* /tmp/__stack_chk_fail_local.o
+
 # Install vcpkg
 ENV VCPKG_ROOT=/opt/vcpkg
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
@@ -171,6 +230,13 @@ RUN set -eu; \
     if strings /tmp/test/build/hello_static | grep -q unused_func; then \
         echo "FAIL: unused_func string not stripped by LTO" >&2; exit 1; \
     fi && \
+    \
+    # --- Validate: musl libc.a contains LLVM bitcode (proves LTO rebuild) ---
+    # exit.o is always compiled from C (src/exit/exit.c), never assembly.
+    ar x /usr/lib/libc.a exit.o && \
+    file exit.o | grep -qi "LLVM\|bitcode" || \
+        { echo "FAIL: libc.a does not contain LLVM bitcode" >&2; exit 1; } && \
+    rm -f exit.o && \
     \
     echo "All toolchain tests passed."
 
