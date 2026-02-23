@@ -20,6 +20,7 @@ RUN apk add --no-cache \
     tar \
     pkgconf \
     linux-headers \
+    patch \
     perl \
     bash \
     autoconf \
@@ -128,8 +129,11 @@ RUN set -eu; \
 # Alpine's exact source + patches, adding -flto so that:
 #   • libc.a contains LLVM bitcode — static binaries get whole-program LTO
 #     across the application/libc boundary
-#   • libc.so (the dynamic linker) is linked with LTO for better codegen
 #   • CRT objects (crt1.o, crti.o, …) contain bitcode as well
+#
+# We build only the static library and CRT objects.  The dynamic linker
+# (libc.so) uses self-modifying relocations in its bootstrap code that LTO
+# cannot handle, so the system libc.so from Alpine is left as-is.
 #
 # Everything (fetch, build, install, cleanup) runs in a single RUN so that
 # intermediate files never appear in a layer.
@@ -151,7 +155,9 @@ RUN set -eu; \
     cd /tmp/musl-${MUSL_VER} && \
     \
     # Apply Alpine's patches in APKBUILD-listed order
-    sed -n 's/^[[:space:]]*//; /\.patch$/p' /tmp/aports/main/musl/APKBUILD \
+    # (restrict to the source= section to avoid matching sha512sums lines)
+    sed -n '/^source="/,/"$/{s/^[[:space:]]*//; /\.patch$/p}' \
+        /tmp/aports/main/musl/APKBUILD \
     | while read -r p; do \
         patch -p1 < "/tmp/aports/main/musl/$p"; \
     done && \
@@ -163,14 +169,18 @@ RUN set -eu; \
     \
     # Configure and build with LTO.
     # musl's configure adds its own -Os; we only append -flto for bitcode.
+    # We build only the static library and CRT objects — the dynamic linker
+    # (libc.so) uses self-modifying relocations in its bootstrap code that
+    # LTO cannot handle, so we leave the system libc.so from Alpine as-is.
     CFLAGS="-flto" \
-    LDFLAGS="-flto" \
     ./configure \
         --prefix=/usr \
         --sysconfdir=/etc \
         --enable-debug && \
-    make -j$(nproc) && \
-    make install && \
+    make -j$(nproc) lib/libc.a lib/crt1.o lib/Scrt1.o lib/rcrt1.o \
+                     lib/crti.o lib/crtn.o && \
+    cp -f lib/libc.a lib/crt1.o lib/Scrt1.o lib/rcrt1.o \
+          lib/crti.o lib/crtn.o /usr/lib/ && \
     \
     # Rebuild libssp_nonshared.a with LTO bitcode
     cc -flto -c /tmp/aports/main/musl/__stack_chk_fail_local.c \
@@ -232,11 +242,12 @@ RUN set -eu; \
     fi && \
     \
     # --- Validate: musl libc.a contains LLVM bitcode (proves LTO rebuild) ---
-    # exit.o is always compiled from C (src/exit/exit.c), never assembly.
-    ar x /usr/lib/libc.a exit.o && \
-    file exit.o | grep -qi "LLVM\|bitcode" || \
+    # exit.lo is always compiled from C (src/exit/exit.c), never assembly.
+    # musl uses the .lo suffix for its object files.
+    ar x /usr/lib/libc.a exit.lo && \
+    llvm-bcanalyzer exit.lo > /dev/null 2>&1 || \
         { echo "FAIL: libc.a does not contain LLVM bitcode" >&2; exit 1; } && \
-    rm -f exit.o && \
+    rm -f exit.lo && \
     \
     echo "All toolchain tests passed."
 
