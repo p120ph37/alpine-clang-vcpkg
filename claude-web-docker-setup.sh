@@ -1,15 +1,15 @@
 #!/bin/bash
-# setup-docker.sh — Set up Docker for Claude Code web agent environment
+# claude-web-docker-setup.sh — Docker setup for the Claude Code web agent sandbox
 #
-# This script handles the peculiarities of running Docker inside the Claude
-# Code web agent sandbox:
+# NOT for general-purpose developer use.  This script handles the specific
+# constraints of the Claude Code web agent environment:
 #   1. Starts dockerd with flags that work without iptables/overlayfs
 #   2. Detects the TLS-intercepting proxy CA and extracts it
 #   3. Configures Docker to route through the proxy
 #   4. Provides a build wrapper that injects the proxy CA into Dockerfiles
 #
 # Usage:
-#   source setup-docker.sh          # set up environment + define functions
+#   source claude-web-docker-setup.sh    # set up environment + define functions
 #   docker-build [docker build args...]  # build with auto CA injection
 #
 # The script is idempotent — safe to source multiple times.

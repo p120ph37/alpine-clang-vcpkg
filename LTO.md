@@ -55,5 +55,34 @@ Supported configs: `RELEASE` and `DEBUG` (the two build types vcpkg uses).
 > To override a port's hardcoded optimization level, use a
 > [vcpkg port overlay](https://learn.microsoft.com/en-us/vcpkg/concepts/overlay-ports).
 
+## Binary size: Clang+LTO vs standard GCC
+
+The following table compares the stripped static binary size of the
+[test program](test/) (a minimal C program that calls one library function)
+built on Alpine 3.23 for x86_64:
+
+| Toolchain | Stripped size |
+|---|--:|
+| **alpine-clang-vcpkg + full LTO** | **~24 KB** |
+| Standard Alpine `gcc` (no LTO) | ~26 KB |
+
+**alpine-clang-vcpkg + full LTO** uses the recommended `EXTRA_*` flags from
+[Quick start](#quick-start) above (`-flto -ffunction-sections -fdata-sections`
+for compilation, `-flto -Wl,--gc-sections -Wl,--icf=all` for linking).
+**Standard Alpine `gcc`** uses the stock `gcc` and `musl-dev` packages with
+CMake Release defaults (`-O3 -DNDEBUG`) and no LTO.
+
+For a trivial hello-world, the saving is modest (~6%).  The benefit grows
+significantly with real-world projects: LTO can inline across library
+boundaries, eliminate dead code from vcpkg dependencies **and** musl libc
+(which is compiled to LLVM bitcode in this image), and merge identical
+functions (`--icf=all`).
+
+> **Important:** The `-Wl,--gc-sections` linker flag is essential when using
+> the LTO-compiled musl.  Without it, unreferenced libc sections are retained
+> and the binary balloons to ~100 KB — _larger_ than the GCC equivalent.
+> Always pair `-ffunction-sections -fdata-sections` in `EXTRA_CFLAGS` with
+> `-Wl,--gc-sections` in `EXTRA_LDFLAGS`.
+
 See the [main README](README.md) for a complete Dockerfile example and
 a full description of [flag precedence](README.md#flag-precedence-and-per-port-overrides).

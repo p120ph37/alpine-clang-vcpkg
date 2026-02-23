@@ -23,7 +23,8 @@ Published to Docker Hub as `p120ph37/alpine-clang-vcpkg`.
 │   ├── docker-validate.yml            # CI: dry-run validation on PRs
 │   └── check-vcpkg-updates.yml        # Scheduled daily vcpkg bump
 ├── .vcpkg-commit                      # Pinned vcpkg commit SHA (updated by CI)
-├── setup-docker.sh                    # Docker setup for Claude Code web agent (proxy CA, dockerd)
+├── claude-web-docker-setup.sh         # Docker setup for Claude Code web agent (not for general use)
+├── .gitignore                         # Ignores environment-specific proxy-ca.pem
 ├── .dockerignore                      # Excludes .git, .github, README.md, LICENSE from build context
 ├── README.md                          # Main docs (contains CI-updated version markers)
 ├── LTO.md                             # Link-time optimization guide
@@ -63,6 +64,7 @@ The Dockerfile `test` stage validates:
 2. CMake project builds with LTO enabled (proves LLVM tools work)
 3. Dynamic and static binaries produce correct output (`result = 42`)
 4. LTO strips `unused_func` from the static binary (checked via `nm` and `strings`)
+5. musl `libc.a` contains LLVM bitcode (checked via `llvm-bcanalyzer`)
 
 There are no unit test frameworks or linters — validation is the Docker build itself.
 
@@ -103,7 +105,7 @@ Commit messages are concise, imperative mood, lowercase after the prefix. Exampl
 
 ### `Dockerfile`
 Multi-stage build with three stages:
-1. **`builder`** — installs Alpine packages, purges GCC/binutils, creates LLVM symlinks, installs vcpkg, copies the toolchain wrapper
+1. **`builder`** — installs Alpine packages, purges GCC/binutils, creates LLVM symlinks, rebuilds musl with LTO (`libc.a` + CRT objects only), installs vcpkg, copies the toolchain wrapper
 2. **`test`** — copies `test/` project and runs end-to-end validation
 3. **final** (unnamed) — derives from `builder`, sets `WORKDIR /src`
 
@@ -137,19 +139,19 @@ Write the desired commit SHA to `.vcpkg-commit` and commit. CI will rebuild with
 
 ## Docker in Claude Code web agent
 
-The `setup-docker.sh` script configures Docker for use inside the Claude Code web agent sandbox, which lacks iptables support and uses a TLS-intercepting HTTPS proxy.
+`claude-web-docker-setup.sh` configures Docker for the Claude Code web agent sandbox (not for general-purpose developer use). The sandbox lacks iptables support, overlayfs, and uses a TLS-intercepting HTTPS proxy.
 
 ### Quick start
 
 ```bash
-source setup-docker.sh   # defines setup_docker and docker-build functions
-setup_docker              # starts dockerd, extracts proxy CA, configures proxy
+source claude-web-docker-setup.sh   # defines setup_docker and docker-build functions
+setup_docker                         # starts dockerd, extracts proxy CA, configures proxy
 docker-build --target test -t alpine-clang-vcpkg-test .
 ```
 
 ### What it does
 
-1. **Starts `dockerd`** with `--iptables=false --bridge=none --storage-driver=vfs` (required since the sandbox lacks iptables and overlayfs)
+1. **Starts `dockerd`** with `--iptables=false --bridge=none --storage-driver=vfs` (required by the sandbox constraints)
 2. **Extracts the proxy CA** from the system trust store (looks for "sandbox-egress-production TLS Inspection CA")
 3. **Configures Docker proxy** settings in `~/.docker/config.json`
 4. **Provides `docker-build`** — a wrapper around `docker build` that auto-injects the proxy CA into Dockerfiles and adds `--network=host`
