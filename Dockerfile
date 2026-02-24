@@ -167,12 +167,14 @@ RUN set -eu; \
     rm -f src/string/x86_64/memcpy.s src/string/x86_64/memmove.s && \
     echo "${MUSL_VER}" > VERSION && \
     \
-    # Configure and build with LTO.
-    # musl's configure adds its own -Os; we only append -flto for bitcode.
+    # Configure and build with LTO + size optimization.
+    # musl's configure defaults to CFLAGS="-Os -pipe" only when CFLAGS is
+    # unset, so we must include -Oz explicitly.  -Oz produces smaller
+    # binaries than the stock GCC -Os build when combined with LTO.
     # We build only the static library and CRT objects — the dynamic linker
     # (libc.so) uses self-modifying relocations in its bootstrap code that
     # LTO cannot handle, so we leave the system libc.so from Alpine as-is.
-    CFLAGS="-flto" \
+    CFLAGS="-flto -Oz" \
     ./configure \
         --prefix=/usr \
         --sysconfdir=/etc \
@@ -182,8 +184,8 @@ RUN set -eu; \
     cp -f lib/libc.a lib/crt1.o lib/Scrt1.o lib/rcrt1.o \
           lib/crti.o lib/crtn.o /usr/lib/ && \
     \
-    # Rebuild libssp_nonshared.a with LTO bitcode
-    cc -flto -c /tmp/aports/main/musl/__stack_chk_fail_local.c \
+    # Rebuild libssp_nonshared.a with LTO bitcode (match musl CFLAGS)
+    cc -flto -Oz -c /tmp/aports/main/musl/__stack_chk_fail_local.c \
         -o /tmp/__stack_chk_fail_local.o && \
     ar rcs /usr/lib/libssp_nonshared.a /tmp/__stack_chk_fail_local.o && \
     \
