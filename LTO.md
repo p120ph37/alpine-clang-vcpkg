@@ -25,8 +25,9 @@ ENV EXTRA_CXXFLAGS="-flto -ffunction-sections -fdata-sections"
 ENV EXTRA_LDFLAGS="-flto -Wl,--gc-sections -Wl,--icf=all"
 ```
 
-These flags are injected into the CMake toolchain so they apply uniformly to
-both your project and all vcpkg dependencies.
+These flags are injected via a wrapper around `vcpkg.cmake` and the vcpkg
+port toolchain, so they apply uniformly to both your project and all vcpkg
+dependencies when you use `CMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake`.
 
 ### Overriding per-config optimization levels
 

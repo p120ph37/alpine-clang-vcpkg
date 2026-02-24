@@ -198,12 +198,19 @@ ENV VCPKG_FORCE_SYSTEM_BINARIES=1
 RUN git clone --depth 1 https://github.com/microsoft/vcpkg.git $VCPKG_ROOT && \
     $VCPKG_ROOT/bootstrap-vcpkg.sh -disableMetrics && \
     ln -s $VCPKG_ROOT/vcpkg /usr/local/bin/vcpkg && \
-    # Rename the upstream linux toolchain so our wrapper can include() it.
+    # Rename upstream files so our wrappers can include() them.
     mv $VCPKG_ROOT/scripts/toolchains/linux.cmake \
-       $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake
+       $VCPKG_ROOT/scripts/toolchains/linux-upstream.cmake && \
+    mv $VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+       $VCPKG_ROOT/scripts/buildsystems/vcpkg-upstream.cmake
 
-# Install our linux.cmake wrapper (adds EXTRA_* env-var support).
+# Install our toolchain wrappers and the shared extra-flags module.
+# - extra-flags.cmake: compiler-rt defaults + EXTRA_* env-var support
+# - linux.cmake: wraps vcpkg's linux toolchain (for port builds)
+# - vcpkg.cmake: wraps vcpkg's buildsystem integration (for main project)
+COPY toolchains/extra-flags.cmake $VCPKG_ROOT/scripts/toolchains/extra-flags.cmake
 COPY toolchains/linux.cmake $VCPKG_ROOT/scripts/toolchains/linux.cmake
+COPY buildsystems/vcpkg.cmake $VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
 #
@@ -250,6 +257,22 @@ RUN set -eu; \
     llvm-bcanalyzer exit.lo > /dev/null 2>&1 || \
         { echo "FAIL: libc.a does not contain LLVM bitcode" >&2; exit 1; } && \
     rm -f exit.lo && \
+    \
+    # --- Validate: EXTRA_* flags + compiler-rt defaults apply to main project ---
+    # When users build via -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake,
+    # the same flags that apply to vcpkg port builds must also apply to the
+    # main project.  This validates that the vcpkg.cmake wrapper correctly
+    # includes extra-flags.cmake.
+    EXTRA_CFLAGS="-DEXTRA_FLAGS_TEST" \
+    cmake -G Ninja -S /tmp/test -B /tmp/test/build-vcpkg \
+        -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+        -DCMAKE_BUILD_TYPE=Release && \
+    grep -qF -- "EXTRA_FLAGS_TEST" /tmp/test/build-vcpkg/CMakeCache.txt || \
+        { echo "FAIL: EXTRA_CFLAGS not applied to main project via vcpkg toolchain" >&2; exit 1; } && \
+    grep -qF -- "--rtlib=compiler-rt" /tmp/test/build-vcpkg/CMakeCache.txt || \
+        { echo "FAIL: compiler-rt default not applied to main project" >&2; exit 1; } && \
+    cmake --build /tmp/test/build-vcpkg && \
+    test "$(/tmp/test/build-vcpkg/hello_static)" = "result = 42" && \
     \
     echo "All toolchain tests passed."
 
