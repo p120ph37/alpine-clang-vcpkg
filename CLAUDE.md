@@ -12,7 +12,10 @@ Published to Docker Hub as `p120ph37/alpine-clang-vcpkg`.
 .
 ├── Dockerfile                         # Multi-stage Docker build (builder → test → final)
 ├── toolchains/
-│   └── linux.cmake                    # CMake toolchain wrapper (compiler-rt defaults + EXTRA_* env vars)
+│   ├── linux.cmake                    # Vcpkg port toolchain wrapper (includes upstream + extra-flags)
+│   └── extra-flags.cmake              # Shared module: compiler-rt defaults + EXTRA_* env vars
+├── buildsystems/
+│   └── vcpkg.cmake                    # vcpkg.cmake wrapper (applies extra-flags to main project)
 ├── test/
 │   ├── CMakeLists.txt                 # Test project: validates LTO, static/dynamic linking
 │   ├── main.c                         # Test entry point (calls used_func)
@@ -35,8 +38,8 @@ Published to Docker Hub as `p120ph37/alpine-clang-vcpkg`.
 ## Key architecture decisions
 
 - **Pure-LLVM toolchain**: GNU binutils and GCC compiler binaries are removed from the image; LLVM equivalents are symlinked in their place (`cc`→`clang`, `ar`→`llvm-ar`, `ld`→`lld`, etc.). GCC CRT objects are retained because the clang driver references them for startup object discovery.
-- **compiler-rt + libunwind by default**: The CMake toolchain wrapper passes `--rtlib=compiler-rt --unwindlib=libunwind` to the linker instead of using libgcc/libgcc_s.
-- **EXTRA_\* environment variables**: Build flags are injected via environment variables (`EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, `EXTRA_LDFLAGS`) rather than custom vcpkg triplets. Per-config overrides (`EXTRA_CFLAGS_RELEASE`, etc.) use `CACHE FORCE` to replace CMake platform defaults.
+- **compiler-rt + libunwind by default**: The shared `extra-flags.cmake` module passes `--rtlib=compiler-rt --unwindlib=libunwind` to the linker instead of using libgcc/libgcc_s.
+- **EXTRA_\* environment variables**: Build flags are injected via environment variables (`EXTRA_CFLAGS`, `EXTRA_CXXFLAGS`, `EXTRA_LDFLAGS`) rather than custom vcpkg triplets. Per-config overrides (`EXTRA_CFLAGS_RELEASE`, etc.) use `CACHE FORCE` to replace CMake platform defaults. The flag logic lives in `extra-flags.cmake` and is included by two wrappers: `toolchains/linux.cmake` (for vcpkg port builds) and `buildsystems/vcpkg.cmake` (for the main project build).
 - **Static linking by default**: vcpkg's built-in Linux triplets already default to `VCPKG_LIBRARY_LINKAGE=static`. Alpine provides `.a` archives for all system packages.
 
 ## Build and test commands
@@ -65,6 +68,7 @@ The Dockerfile `test` stage validates:
 3. Dynamic and static binaries produce correct output (`result = 42`)
 4. LTO strips `unused_func` from the static binary (checked via `nm` and `strings`)
 5. musl `libc.a` contains LLVM bitcode (checked via `llvm-bcanalyzer`)
+6. `EXTRA_*` flags and compiler-rt defaults apply to the main project via `vcpkg.cmake`
 
 There are no unit test frameworks or linters — validation is the Docker build itself.
 
@@ -105,17 +109,23 @@ Commit messages are concise, imperative mood, lowercase after the prefix. Exampl
 
 ### `Dockerfile`
 Multi-stage build with three stages:
-1. **`builder`** — installs Alpine packages, purges GCC/binutils, creates LLVM symlinks, rebuilds musl with LTO (`libc.a` + CRT objects only), installs vcpkg, copies the toolchain wrapper
+1. **`builder`** — installs Alpine packages, purges GCC/binutils, creates LLVM symlinks, rebuilds musl with LTO (`libc.a` + CRT objects only), installs vcpkg, installs toolchain wrappers (`linux.cmake`, `vcpkg.cmake`, `extra-flags.cmake`)
 2. **`test`** — copies `test/` project and runs end-to-end validation
 3. **final** (unnamed) — derives from `builder`, sets `WORKDIR /src`
 
-### `toolchains/linux.cmake`
-Wrapper around vcpkg's upstream `linux-upstream.cmake`. Adds:
+### `toolchains/extra-flags.cmake`
+Shared CMake module that provides two things:
 - Default `--rtlib=compiler-rt --unwindlib=libunwind` linker flags
 - `EXTRA_CFLAGS` / `EXTRA_CXXFLAGS` / `EXTRA_LDFLAGS` (appended to `_INIT` variables)
 - Per-config overrides via `EXTRA_CFLAGS_RELEASE`, `EXTRA_CFLAGS_DEBUG`, etc. (uses `CACHE FORCE`)
 
-Guarded by `_VCPKG_LINUX_EXTRA_FLAGS` to prevent double-inclusion.
+Guarded by `_ALPINE_CLANG_EXTRA_FLAGS` to prevent double-inclusion. Included by both `toolchains/linux.cmake` (for vcpkg port builds) and `buildsystems/vcpkg.cmake` (for main project builds).
+
+### `toolchains/linux.cmake`
+Thin wrapper around vcpkg's upstream `linux-upstream.cmake`. Includes the upstream toolchain and then includes `extra-flags.cmake`. Used by vcpkg internally when building ports.
+
+### `buildsystems/vcpkg.cmake`
+Wrapper around vcpkg's upstream `vcpkg-upstream.cmake`. Includes `extra-flags.cmake` before the upstream buildsystem integration so that the same compiler-rt defaults and `EXTRA_*` flags apply to the user's main project build (not just vcpkg port builds). `VCPKG_CHAINLOAD_TOOLCHAIN_FILE` is handled by the upstream `vcpkg.cmake` and is unaffected by this wrapper.
 
 ### `.vcpkg-commit`
 Single-line file containing the pinned vcpkg commit SHA. Updated automatically by `check-vcpkg-updates.yml`. The Dockerfile clones vcpkg with `--depth 1` at HEAD (not this specific SHA) — the file primarily serves as a change trigger for CI rebuilds.
@@ -129,7 +139,7 @@ Contains HTML comment markers (`<!-- alpine-version -->...<!-- /alpine-version -
 Add it to the `apk add` line in the `Dockerfile` `builder` stage (line 5). The package list in README.md is auto-updated by CI after the next push to `main`.
 
 ### Modifying the CMake toolchain behavior
-Edit `toolchains/linux.cmake`. The upstream vcpkg toolchain is included via `include("${CMAKE_CURRENT_LIST_DIR}/linux-upstream.cmake")` — do not modify that file.
+Edit `toolchains/extra-flags.cmake` for flag injection or compiler-rt defaults (shared by both port and main project builds). Edit `toolchains/linux.cmake` for port-build-specific behavior, or `buildsystems/vcpkg.cmake` for main-project-specific behavior. The upstream vcpkg files (`linux-upstream.cmake`, `vcpkg-upstream.cmake`) are included via `include()` — do not modify those files.
 
 ### Adding or modifying toolchain tests
 Edit files in the `test/` directory and/or the `RUN` block in the Dockerfile `test` stage. Tests run during every Docker build, including CI.
@@ -165,4 +175,5 @@ Docker has no daemon-level mechanism to inject CA certificates into build contai
 - Do not remove GCC CRT objects or the `gcc` package record from the image — the clang driver depends on them for startup object discovery, and the APK database entry prevents re-installation.
 - Do not manually edit content between HTML comment markers in README.md (e.g., `<!-- package-list -->`) — CI overwrites these.
 - Do not add `CMAKE_C_COMPILER` or `CMAKE_CXX_COMPILER` overrides to the toolchain wrapper — compiler selection is handled by symlinks.
-- Do not set `VCPKG_CHAINLOAD_TOOLCHAIN_FILE` in the wrapper — it is intentionally left available for user triplets.
+- Do not set `VCPKG_CHAINLOAD_TOOLCHAIN_FILE` in `toolchains/linux.cmake` — it is intentionally left available for user triplets. The `buildsystems/vcpkg.cmake` wrapper also does not consume it; it is handled by the upstream `vcpkg.cmake`.
+- Do not modify the upstream renamed files (`linux-upstream.cmake`, `vcpkg-upstream.cmake`) — edit the wrappers or `extra-flags.cmake` instead.
