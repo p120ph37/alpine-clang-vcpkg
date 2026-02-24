@@ -84,7 +84,7 @@ built on Alpine 3.21 for x86_64:
 |---|--:|
 | **alpine-clang-vcpkg + full LTO (-O3)** | **17,024 B** |
 | **alpine-clang-vcpkg + full LTO (-Oz)** | **17,016 B** |
-| Stock Alpine clang + LTO (no musl rebuild) | ~19 KB |
+| Stock Alpine clang + LTO (no musl rebuild) | 19,904 B |
 
 **alpine-clang-vcpkg + full LTO** uses the recommended `EXTRA_*` flags from
 [Quick start](#quick-start) above (`-flto -ffunction-sections -fdata-sections`
