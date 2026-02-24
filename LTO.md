@@ -8,7 +8,7 @@ code globally, and perform whole-program devirtualization.
 
 ## musl libc LTO
 
-The base image rebuilds musl libc from Alpine's source with `-flto`, so
+The base image rebuilds musl libc from Alpine's source with `-flto -Oz`, so
 `libc.a` contains LLVM bitcode instead of native object code.  When you
 build a static binary with LTO enabled, the linker can optimize across
 your application, vcpkg libraries, **and** the C library in a single
@@ -59,24 +59,25 @@ Supported configs: `RELEASE` and `DEBUG` (the two build types vcpkg uses).
 
 The following table compares the stripped static binary size of the
 [test program](test/) (a minimal C program that calls one library function)
-built on Alpine 3.23 for x86_64:
+built on Alpine 3.21 for x86_64:
 
 | Toolchain | Stripped size |
 |---|--:|
-| **alpine-clang-vcpkg + full LTO** | **~24 KB** |
-| Standard Alpine `gcc` (no LTO) | ~26 KB |
+| **alpine-clang-vcpkg + full LTO (-O3)** | **~18 KB** |
+| **alpine-clang-vcpkg + full LTO (-Oz)** | **~17 KB** |
+| Stock Alpine clang + LTO (no musl rebuild) | ~19 KB |
 
 **alpine-clang-vcpkg + full LTO** uses the recommended `EXTRA_*` flags from
 [Quick start](#quick-start) above (`-flto -ffunction-sections -fdata-sections`
 for compilation, `-flto -Wl,--gc-sections -Wl,--icf=all` for linking).
-**Standard Alpine `gcc`** uses the stock `gcc` and `musl-dev` packages with
-CMake Release defaults (`-O3 -DNDEBUG`) and no LTO.
+**Stock Alpine clang + LTO** uses the same clang toolchain and LTO flags but
+with the unmodified `musl-dev` package (GCC-compiled native objects in
+`libc.a`, which cannot participate in cross-library LTO).
 
-For a trivial hello-world, the saving is modest (~6%).  The benefit grows
-significantly with real-world projects: LTO can inline across library
-boundaries, eliminate dead code from vcpkg dependencies **and** musl libc
-(which is compiled to LLVM bitcode in this image), and merge identical
-functions (`--icf=all`).
+The saving comes from whole-program LTO across the application/libc boundary:
+the linker can inline, eliminate dead code, and merge identical functions
+(`--icf=all`) across **all** translation units including musl libc itself.
+The benefit grows with real-world projects that pull in more libc surface area.
 
 > **Important:** The `-Wl,--gc-sections` linker flag is essential when using
 > the LTO-compiled musl.  Without it, unreferenced libc sections are retained
