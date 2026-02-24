@@ -274,6 +274,24 @@ RUN set -eu; \
     cmake --build /tmp/test/build-vcpkg && \
     test "$(/tmp/test/build-vcpkg/hello_static)" = "result = 42" && \
     \
+    # --- Validate: static linking with compiler-rt + atomics (arm64 regression) ---
+    # On aarch64, compiler-rt's outline atomics call getauxval() from libc.
+    # This creates a circular dependency: compiler-rt → getauxval → libc.a.
+    # Verify the linker resolves it (lld iterates; clang uses --start-group).
+    printf '%s\n' \
+        '#include <stdatomic.h>' \
+        '#include <stdio.h>' \
+        'int main(void) {' \
+        '    atomic_int x = 0;' \
+        '    atomic_fetch_add(&x, 42);' \
+        '    printf("atomic result = %d\n", atomic_load(&x));' \
+        '    return atomic_load(&x) == 42 ? 0 : 1;' \
+        '}' > /tmp/test_atomics.c && \
+    cc -static --rtlib=compiler-rt --unwindlib=libunwind \
+        -o /tmp/test_atomics /tmp/test_atomics.c && \
+    /tmp/test_atomics && \
+    rm -f /tmp/test_atomics /tmp/test_atomics.c && \
+    \
     echo "All toolchain tests passed."
 
 # ── Final image: the build environment that gets tagged / pushed ─────────────
