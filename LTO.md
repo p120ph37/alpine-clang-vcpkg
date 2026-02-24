@@ -78,13 +78,13 @@ Supported configs: `RELEASE` and `DEBUG` (the two build types vcpkg uses).
 
 The following table compares the stripped static binary size of the
 [test program](test/) (a minimal C program that calls one library function)
-built on Alpine 3.21 for x86_64:
+built on Alpine 3.23 for x86_64:
 
 | Toolchain | Stripped size |
 |---|--:|
+| Stock Alpine clang + LTO (no musl rebuild) | 19,904 B |
 | **alpine-clang-vcpkg + full LTO (-O3)** | **17,024 B** |
 | **alpine-clang-vcpkg + full LTO (-Oz)** | **17,016 B** |
-| Stock Alpine clang + LTO (no musl rebuild) | 19,904 B |
 
 **alpine-clang-vcpkg + full LTO** uses the recommended `EXTRA_*` flags from
 [Quick start](#quick-start) above (`-flto -ffunction-sections -fdata-sections`
