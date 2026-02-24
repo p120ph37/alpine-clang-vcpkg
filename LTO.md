@@ -82,8 +82,8 @@ built on Alpine 3.21 for x86_64:
 
 | Toolchain | Stripped size |
 |---|--:|
-| **alpine-clang-vcpkg + full LTO (-O3)** | **~17 KB** |
-| **alpine-clang-vcpkg + full LTO (-Oz)** | **~17 KB** |
+| **alpine-clang-vcpkg + full LTO (-O3)** | **17,024 B** |
+| **alpine-clang-vcpkg + full LTO (-Oz)** | **17,016 B** |
 | Stock Alpine clang + LTO (no musl rebuild) | ~19 KB |
 
 **alpine-clang-vcpkg + full LTO** uses the recommended `EXTRA_*` flags from
