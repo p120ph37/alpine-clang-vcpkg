@@ -4,4 +4,3 @@ README.md
 LICENSE
 .dockerignore
 claude-web-docker-setup.sh
-proxy-ca.pem
