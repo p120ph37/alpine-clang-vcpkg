@@ -15,6 +15,24 @@ your application, vcpkg libraries, **and** the C library in a single
 whole-program LTO pass.  No extra configuration is needed — just set the
 `EXTRA_*` flags shown below.
 
+## arm64: compiler-rt and outline atomics
+
+On aarch64 (arm64), LLVM's compiler-rt uses **outline atomics** — runtime
+helpers that call `getauxval()` to detect whether the CPU supports LSE atomic
+instructions.  `getauxval` is provided by musl's `libc.a`, which creates a
+circular link-time dependency when building static binaries:
+
+```
+compiler-rt (libclang_rt.builtins) → getauxval → libc.a
+```
+
+This is handled automatically by lld, which iterates over input archives until
+all symbols are resolved (unlike GNU ld, which requires explicit
+`--start-group`/`--end-group`).  Since this toolchain uses lld exclusively, no
+extra linker flags are needed — static arm64 binaries that use atomics link
+correctly out of the box.  The Docker build's test stage validates this on
+every arm64 build.
+
 ## Quick start
 
 Set the `EXTRA_*` environment variables before any build step:
