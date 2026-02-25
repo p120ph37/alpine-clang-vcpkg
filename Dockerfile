@@ -219,6 +219,11 @@ COPY buildsystems/vcpkg.cmake $VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 # lld) — GNU ar cannot parse LLVM bitcode, so a successful LTO build proves
 # the toolchain is pure-LLVM.  We also verify that LTO correctly strips the
 # unused library function from the static binary.
+#
+# The test project includes a custom vcpkg overlay port (atomiclib) that uses
+# stdatomic.h.  On aarch64, compiler-rt's outline atomics call getauxval()
+# from libc, creating a circular dependency when statically linking.  This
+# exercises the full vcpkg port → library → static link → compiler-rt path.
 FROM builder AS test
 
 COPY test/ /tmp/test/
@@ -238,11 +243,13 @@ RUN set -eu; \
     echo "Dynamic binary output: $(/tmp/test/build/hello_dynamic)" && \
     /tmp/test/build/hello_dynamic | grep -q "result = 42" && \
     /tmp/test/build/hello_dynamic | grep -q "zlib version = " && \
+    /tmp/test/build/hello_dynamic | grep -q "atomic result = 42" && \
     \
     # --- Validate: static binary runs correctly ---
     echo "Static binary output: $(/tmp/test/build/hello_static)" && \
     /tmp/test/build/hello_static | grep -q "result = 42" && \
     /tmp/test/build/hello_static | grep -q "zlib version = " && \
+    /tmp/test/build/hello_static | grep -q "atomic result = 42" && \
     \
     # --- Validate: LTO stripped unused_func from the static binary ---
     # used_func may be inlined at -O3, so we only assert unused_func is absent.
@@ -277,6 +284,7 @@ RUN set -eu; \
         { echo "FAIL: compiler-rt default not applied to main project" >&2; exit 1; } && \
     cmake --build /tmp/test/build-vcpkg && \
     /tmp/test/build-vcpkg/hello_static | grep -q "result = 42" && \
+    /tmp/test/build-vcpkg/hello_static | grep -q "atomic result = 42" && \
     \
     # --- Validate: static linking with compiler-rt + atomics (arm64 regression) ---
     # On aarch64, compiler-rt's outline atomics call getauxval() from libc.

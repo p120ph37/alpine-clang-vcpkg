@@ -1,5 +1,5 @@
 {
   "name": "toolchain-test",
   "version-string": "0",
-  "dependencies": ["zlib"]
+  "dependencies": ["zlib", "atomiclib"]
 }
