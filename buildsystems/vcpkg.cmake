@@ -13,4 +13,5 @@
 # vcpkg.cmake and is unaffected by this wrapper.
 
 include("${CMAKE_CURRENT_LIST_DIR}/../toolchains/extra-flags.cmake")
+
 include("${CMAKE_CURRENT_LIST_DIR}/vcpkg-upstream.cmake")
