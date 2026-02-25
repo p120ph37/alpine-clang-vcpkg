@@ -27,24 +27,31 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT    " --rtlib=compiler-rt --unwindlib=l
 string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
 string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
 
-# ── Link-group wrapping (arm64 circular-dependency fix) ───────────────
-# On aarch64, compiler-rt's outline atomic helpers call getauxval() from
-# libc, creating a circular dependency when any static archive uses
-# atomics:  archive → compiler-rt → libc → …
+# ── aarch64: force-extract getauxval from libc (LTO + compiler-rt fix) ─
+# On aarch64, compiler-rt's outline atomic helpers (native .o inside
+# libclang_rt.builtins) reference getauxval() from musl's libc.a.  When
+# the user's code is compiled with LTO, libc.a contains LLVM bitcode but
+# compiler-rt remains native object code.  lld's LTO pipeline fails to
+# pull the bitcode getauxval.lo from libc.a to satisfy the native object's
+# undefined reference, leaving getauxval as a weak symbol at address 0
+# and causing a segfault when the outline atomic init constructor runs.
 #
-# The clang driver wraps its implicit runtime libraries in a link group,
-# but CMake places explicit archive paths (e.g. vcpkg-installed .a files)
-# outside that group.  Wrapping <LINK_LIBRARIES> with --start-group /
-# --end-group ensures the linker rescans all archives to resolve circular
-# references between user libraries, compiler-rt, and libc.
+# -Wl,-u,getauxval forces lld to extract getauxval.lo from libc.a
+# unconditionally, ensuring the symbol is resolved before LTO runs.
+# This is harmless on non-aarch64 (getauxval exists in musl on all
+# architectures but is simply never referenced by compiler-rt).
 #
-# This is harmless on non-arm64 (no outline atomics, nothing to rescan)
-# and on targets that don't produce executables (shared/module libraries
-# use a different link rule).
-set(CMAKE_C_LINK_EXECUTABLE
-    "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group")
-set(CMAKE_CXX_LINK_EXECUTABLE
-    "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group")
+# getauxval is the ONLY libc symbol unconditionally reachable from
+# compiler-rt on any architecture.  All other compiler-rt builtins
+# objects (emutls.c.o, int_util.c.o, etc.) are demand-linked — they
+# are only extracted when the user's code references their trigger
+# symbols, which also transitively resolves their libc dependencies.
+# On x86_64, the equivalent cpu_model (x86.c.o) uses inline CPUID
+# with no libc calls and is demand-linked only.
+cmake_host_system_information(RESULT _host_arch QUERY OS_PLATFORM)
+if(_host_arch STREQUAL "aarch64")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -Wl,-u,getauxval")
+endif()
 
 # ── Base flags (all build types) ─────────────────────────────────────
 # Set EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS in the environment to
