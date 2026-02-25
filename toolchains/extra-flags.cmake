@@ -27,6 +27,25 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT    " --rtlib=compiler-rt --unwindlib=l
 string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
 string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " --rtlib=compiler-rt --unwindlib=libunwind")
 
+# ── Link-group wrapping (arm64 circular-dependency fix) ───────────────
+# On aarch64, compiler-rt's outline atomic helpers call getauxval() from
+# libc, creating a circular dependency when any static archive uses
+# atomics:  archive → compiler-rt → libc → …
+#
+# The clang driver wraps its implicit runtime libraries in a link group,
+# but CMake places explicit archive paths (e.g. vcpkg-installed .a files)
+# outside that group.  Wrapping <LINK_LIBRARIES> with --start-group /
+# --end-group ensures the linker rescans all archives to resolve circular
+# references between user libraries, compiler-rt, and libc.
+#
+# This is harmless on non-arm64 (no outline atomics, nothing to rescan)
+# and on targets that don't produce executables (shared/module libraries
+# use a different link rule).
+set(CMAKE_C_LINK_EXECUTABLE
+    "<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group")
+set(CMAKE_CXX_LINK_EXECUTABLE
+    "<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group")
+
 # ── Base flags (all build types) ─────────────────────────────────────
 # Set EXTRA_CFLAGS / EXTRA_CXXFLAGS / EXTRA_LDFLAGS in the environment to
 # inject flags into ALL builds — both vcpkg dependencies and your project.
