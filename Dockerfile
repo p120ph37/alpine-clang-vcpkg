@@ -216,12 +216,13 @@ COPY buildsystems/vcpkg.cmake $VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 #
 # Builds a small CMake project through vcpkg with LTO enabled, producing both
 # a dynamically-linked and a statically-linked binary.  The project depends on
-# zlib (installed by vcpkg) and uses C11 atomics, exercising the full
-# static-linking path including the compiler-rt ↔ libc circular dependency on
-# arm64.  LTO requires LLVM tools (llvm-ar, lld) — GNU ar cannot parse LLVM
-# bitcode, so a successful LTO build proves the toolchain is pure-LLVM.
-# We also verify that LTO correctly strips the unused library function from
-# the static binary.
+# zlib (installed by vcpkg) and links a local static library (mylib) that uses
+# C11 atomics internally.  On arm64, the outline atomic helpers in compiler-rt
+# reference getauxval() from libc, creating a circular dependency that
+# exercises the full static-linking path.  LTO requires LLVM tools (llvm-ar,
+# lld) — GNU ar cannot parse LLVM bitcode, so a successful LTO build proves
+# the toolchain is pure-LLVM.  We also verify that LTO correctly strips the
+# unused library function from the static binary.
 FROM builder AS test
 
 COPY test/ /tmp/test/
@@ -234,8 +235,9 @@ RUN set -eu; \
     # --- Build test project via vcpkg ---
     # Uses vcpkg.cmake wrapper which applies extra-flags.cmake (compiler-rt
     # defaults + EXTRA_* env vars) to the main project build.  The project
-    # links against vcpkg-installed zlib and uses C11 atomics, testing the
-    # full static-linking path on both amd64 and arm64.
+    # links against vcpkg-installed zlib and a static library that uses C11
+    # atomics internally, testing the full static-linking path on both
+    # amd64 and arm64.
     EXTRA_CFLAGS="-DEXTRA_FLAGS_TEST" \
     cmake -G Ninja -S /tmp/test -B /tmp/test/build \
         -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
