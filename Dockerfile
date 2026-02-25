@@ -214,11 +214,14 @@ COPY buildsystems/vcpkg.cmake $VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 
 # ── Test stage: verify the toolchain works end-to-end ────────────────────────
 #
-# Builds a small CMake project with LTO enabled, producing both a dynamically-
-# linked and a statically-linked binary.  LTO requires LLVM tools (llvm-ar,
-# lld) — GNU ar cannot parse LLVM bitcode, so a successful LTO build proves
-# the toolchain is pure-LLVM.  We also verify that LTO correctly strips the
-# unused library function from the static binary.
+# Builds a small CMake project through vcpkg with LTO enabled, producing both
+# a dynamically-linked and a statically-linked binary.  The project depends on
+# zlib (installed by vcpkg) and uses C11 atomics, exercising the full
+# static-linking path including the compiler-rt ↔ libc circular dependency on
+# arm64.  LTO requires LLVM tools (llvm-ar, lld) — GNU ar cannot parse LLVM
+# bitcode, so a successful LTO build proves the toolchain is pure-LLVM.
+# We also verify that LTO correctly strips the unused library function from
+# the static binary.
 FROM builder AS test
 
 COPY test/ /tmp/test/
@@ -228,8 +231,23 @@ RUN set -eu; \
     cc --version 2>&1 | head -1 | grep -qi clang || \
         { echo "FAIL: cc is not clang" >&2; cc --version >&2; exit 1; } && \
     \
+    # --- Build test project via vcpkg ---
+    # Uses vcpkg.cmake wrapper which applies extra-flags.cmake (compiler-rt
+    # defaults + EXTRA_* env vars) to the main project build.  The project
+    # links against vcpkg-installed zlib and uses C11 atomics, testing the
+    # full static-linking path on both amd64 and arm64.
+    EXTRA_CFLAGS="-DEXTRA_FLAGS_TEST" \
     cmake -G Ninja -S /tmp/test -B /tmp/test/build \
-        -DCMAKE_BUILD_TYPE=Release && \
+        -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+        -DCMAKE_BUILD_TYPE=Release \
+    && \
+    \
+    # --- Validate: EXTRA_* flags + compiler-rt defaults apply to main project ---
+    grep -qF -- "EXTRA_FLAGS_TEST" /tmp/test/build/CMakeCache.txt || \
+        { echo "FAIL: EXTRA_CFLAGS not applied via vcpkg toolchain" >&2; exit 1; } && \
+    grep -qF -- "--rtlib=compiler-rt" /tmp/test/build/CMakeCache.txt || \
+        { echo "FAIL: compiler-rt default not applied" >&2; exit 1; } && \
+    \
     cmake --build /tmp/test/build && \
     \
     # --- Validate: dynamic binary runs correctly ---
@@ -237,6 +255,10 @@ RUN set -eu; \
     test "$(/tmp/test/build/hello_dynamic)" = "result = 42" && \
     \
     # --- Validate: static binary runs correctly ---
+    # The static binary links vcpkg-installed zlib + a local static library
+    # that uses C11 atomics.  On arm64, the outline atomic helpers in
+    # compiler-rt reference getauxval() from libc, creating a circular
+    # dependency that exercises the static-linking path end-to-end.
     echo "Static binary output: $(/tmp/test/build/hello_static)" && \
     test "$(/tmp/test/build/hello_static)" = "result = 42" && \
     \
@@ -257,40 +279,6 @@ RUN set -eu; \
     llvm-bcanalyzer exit.lo > /dev/null 2>&1 || \
         { echo "FAIL: libc.a does not contain LLVM bitcode" >&2; exit 1; } && \
     rm -f exit.lo && \
-    \
-    # --- Validate: EXTRA_* flags + compiler-rt defaults apply to main project ---
-    # When users build via -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake,
-    # the same flags that apply to vcpkg port builds must also apply to the
-    # main project.  This validates that the vcpkg.cmake wrapper correctly
-    # includes extra-flags.cmake.
-    EXTRA_CFLAGS="-DEXTRA_FLAGS_TEST" \
-    cmake -G Ninja -S /tmp/test -B /tmp/test/build-vcpkg \
-        -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-        -DCMAKE_BUILD_TYPE=Release && \
-    grep -qF -- "EXTRA_FLAGS_TEST" /tmp/test/build-vcpkg/CMakeCache.txt || \
-        { echo "FAIL: EXTRA_CFLAGS not applied to main project via vcpkg toolchain" >&2; exit 1; } && \
-    grep -qF -- "--rtlib=compiler-rt" /tmp/test/build-vcpkg/CMakeCache.txt || \
-        { echo "FAIL: compiler-rt default not applied to main project" >&2; exit 1; } && \
-    cmake --build /tmp/test/build-vcpkg && \
-    test "$(/tmp/test/build-vcpkg/hello_static)" = "result = 42" && \
-    \
-    # --- Validate: static linking with compiler-rt + atomics (arm64 regression) ---
-    # On aarch64, compiler-rt's outline atomics call getauxval() from libc.
-    # This creates a circular dependency: compiler-rt → getauxval → libc.a.
-    # Verify the linker resolves it (lld iterates; clang uses --start-group).
-    printf '%s\n' \
-        '#include <stdatomic.h>' \
-        '#include <stdio.h>' \
-        'int main(void) {' \
-        '    atomic_int x = 0;' \
-        '    atomic_fetch_add(&x, 42);' \
-        '    printf("atomic result = %d\n", atomic_load(&x));' \
-        '    return atomic_load(&x) == 42 ? 0 : 1;' \
-        '}' > /tmp/test_atomics.c && \
-    cc -static --rtlib=compiler-rt --unwindlib=libunwind \
-        -o /tmp/test_atomics /tmp/test_atomics.c && \
-    /tmp/test_atomics && \
-    rm -f /tmp/test_atomics /tmp/test_atomics.c && \
     \
     echo "All toolchain tests passed."
 
