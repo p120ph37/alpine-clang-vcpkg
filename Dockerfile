@@ -228,17 +228,21 @@ RUN set -eu; \
     cc --version 2>&1 | head -1 | grep -qi clang || \
         { echo "FAIL: cc is not clang" >&2; cc --version >&2; exit 1; } && \
     \
+    # --- Build with vcpkg (installs zlib dependency from vcpkg.json) ---
     cmake -G Ninja -S /tmp/test -B /tmp/test/build \
+        -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
         -DCMAKE_BUILD_TYPE=Release && \
     cmake --build /tmp/test/build && \
     \
     # --- Validate: dynamic binary runs correctly ---
     echo "Dynamic binary output: $(/tmp/test/build/hello_dynamic)" && \
-    test "$(/tmp/test/build/hello_dynamic)" = "result = 42" && \
+    /tmp/test/build/hello_dynamic | grep -q "result = 42" && \
+    /tmp/test/build/hello_dynamic | grep -q "zlib version = " && \
     \
     # --- Validate: static binary runs correctly ---
     echo "Static binary output: $(/tmp/test/build/hello_static)" && \
-    test "$(/tmp/test/build/hello_static)" = "result = 42" && \
+    /tmp/test/build/hello_static | grep -q "result = 42" && \
+    /tmp/test/build/hello_static | grep -q "zlib version = " && \
     \
     # --- Validate: LTO stripped unused_func from the static binary ---
     # used_func may be inlined at -O3, so we only assert unused_func is absent.
@@ -272,7 +276,7 @@ RUN set -eu; \
     grep -qF -- "--rtlib=compiler-rt" /tmp/test/build-vcpkg/CMakeCache.txt || \
         { echo "FAIL: compiler-rt default not applied to main project" >&2; exit 1; } && \
     cmake --build /tmp/test/build-vcpkg && \
-    test "$(/tmp/test/build-vcpkg/hello_static)" = "result = 42" && \
+    /tmp/test/build-vcpkg/hello_static | grep -q "result = 42" && \
     \
     # --- Validate: static linking with compiler-rt + atomics (arm64 regression) ---
     # On aarch64, compiler-rt's outline atomics call getauxval() from libc.

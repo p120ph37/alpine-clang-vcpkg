@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(toolchain-test C)
 
+find_package(ZLIB REQUIRED)
+
 # Enable LTO — requires LLVM tools (llvm-ar, lld); GNU ar cannot parse
 # LLVM bitcode objects so this doubles as proof that the toolchain is pure-LLVM.
 include(CheckIPOSupported)
@@ -20,9 +22,9 @@ set_target_properties(mylib_static PROPERTIES OUTPUT_NAME mylib)
 
 # --- dynamically-linked executable -------------------------------------------
 add_executable(hello_dynamic main.c)
-target_link_libraries(hello_dynamic PRIVATE mylib_shared)
+target_link_libraries(hello_dynamic PRIVATE mylib_shared ZLIB::ZLIB)
 
 # --- statically-linked executable --------------------------------------------
 add_executable(hello_static main.c)
-target_link_libraries(hello_static PRIVATE mylib_static)
+target_link_libraries(hello_static PRIVATE mylib_static ZLIB::ZLIB)
 target_link_options(hello_static PRIVATE -static)
